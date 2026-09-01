@@ -1,0 +1,65 @@
+2026-08-31 09:00:01 INFO payment-service Payment request received request_id=REQ001 user_id=U101 amount=2500
+2026-08-31 09:00:02 INFO payment-service Payment validation successful request_id=REQ001
+2026-08-31 09:00:03 INFO payment-service Payment processed successfully request_id=REQ001
+2026-08-31 09:01:15 INFO user-service User login successful user_id=U102
+2026-08-31 09:01:18 INFO payment-service Payment request received request_id=REQ002 user_id=U102 amount=1200
+2026-08-31 09:01:19 INFO payment-service Payment validation successful request_id=REQ002
+2026-08-31 09:01:20 INFO payment-service Payment processed successfully request_id=REQ002
+2026-08-31 09:03:41 INFO order-service Order created order_id=ORD001 user_id=U103
+2026-08-31 09:03:42 INFO inventory-service Inventory check started order_id=ORD001
+2026-08-31 09:03:43 INFO inventory-service Inventory available order_id=ORD001
+2026-08-31 09:03:44 INFO order-service Order confirmed order_id=ORD001
+2026-08-31 09:05:11 INFO payment-service Payment request received request_id=REQ003 user_id=U104 amount=8900
+2026-08-31 09:05:12 INFO payment-service Payment validation successful request_id=REQ003
+2026-08-31 09:05:15 WARN payment-service Database response slow request_id=REQ003 latency_ms=2800
+2026-08-31 09:05:18 ERROR payment-service Database connection timeout request_id=REQ003
+2026-08-31 09:05:18 ERROR payment-service Payment failed request_id=REQ003 error_code=DB_TIMEOUT
+2026-08-31 09:05:19 INFO payment-service Retrying payment request_id=REQ003 attempt=1
+2026-08-31 09:05:22 ERROR payment-service Database connection timeout request_id=REQ003
+2026-08-31 09:05:22 ERROR payment-service Payment failed request_id=REQ003 error_code=DB_TIMEOUT
+2026-08-31 09:06:03 INFO user-service User login successful user_id=U105
+2026-08-31 09:06:20 INFO order-service Order created order_id=ORD002 user_id=U105
+2026-08-31 09:06:21 INFO inventory-service Inventory check started order_id=ORD002
+2026-08-31 09:06:22 INFO inventory-service Inventory available order_id=ORD002
+2026-08-31 09:06:23 INFO order-service Order confirmed order_id=ORD002
+2026-08-31 09:07:31 WARN payment-service Database response slow request_id=REQ004 latency_ms=3100
+2026-08-31 09:07:35 ERROR payment-service Database connection timeout request_id=REQ004
+2026-08-31 09:07:35 ERROR payment-service Payment failed request_id=REQ004 error_code=DB_TIMEOUT
+2026-08-31 09:08:10 WARN payment-service Database connection pool usage high active=95 max=100
+2026-08-31 09:08:15 ERROR payment-service Database connection pool exhausted active=100 max=100
+2026-08-31 09:08:16 ERROR payment-service Payment request rejected error_code=DB_POOL_EXHAUSTED
+2026-08-31 09:08:45 INFO payment-service Health check started
+2026-08-31 09:08:46 ERROR payment-service Database health check failed error=CONNECTION_TIMEOUT
+2026-08-31 09:09:01 INFO user-service User login successful user_id=U106
+2026-08-31 09:09:05 ERROR order-service Failed to create order order_id=ORD003 error_code=PAYMENT_SERVICE_UNAVAILABLE
+2026-08-31 09:09:06 WARN order-service Payment service dependency unavailable retry=1
+2026-08-31 09:09:08 WARN order-service Payment service dependency unavailable retry=2
+2026-08-31 09:09:11 ERROR order-service Order creation failed order_id=ORD003 error_code=PAYMENT_SERVICE_UNAVAILABLE
+2026-08-31 09:10:00 INFO inventory-service Inventory synchronization started
+2026-08-31 09:10:02 INFO inventory-service Inventory synchronization completed items=1250
+2026-08-31 09:11:14 INFO user-service User login successful user_id=U107
+2026-08-31 09:11:20 INFO payment-service Payment request received request_id=REQ005 user_id=U107 amount=450
+2026-08-31 09:11:21 INFO payment-service Payment validation successful request_id=REQ005
+2026-08-31 09:11:22 INFO payment-service Payment processed successfully request_id=REQ005
+2026-08-31 09:12:30 INFO payment-service Payment request received request_id=REQ006 user_id=U108 amount=760
+2026-08-31 09:12:31 INFO payment-service Payment validation successful request_id=REQ006
+2026-08-31 09:12:32 INFO payment-service Payment processed successfully request_id=REQ006
+2026-08-31 09:13:44 WARN payment-service Database response slow request_id=REQ007 latency_ms=2900
+2026-08-31 09:13:47 ERROR payment-service Database connection timeout request_id=REQ007
+2026-08-31 09:13:47 ERROR payment-service Payment failed request_id=REQ007 error_code=DB_TIMEOUT
+2026-08-31 09:14:02 ERROR payment-service Database connection pool exhausted active=100 max=100
+2026-08-31 09:14:03 ERROR payment-service Payment requests failing error_rate=42_percent
+2026-08-31 09:14:10 ERROR order-service Payment dependency failure error_rate=38_percent
+2026-08-31 09:14:11 ERROR order-service Unable to create orders error_code=PAYMENT_DEPENDENCY_FAILURE
+2026-08-31 09:15:00 WARN payment-service Circuit breaker opened failure_count=15 threshold=10
+2026-08-31 09:15:01 INFO payment-service Payment service entering degraded mode
+2026-08-31 09:15:30 INFO user-service User login successful user_id=U109
+2026-08-31 09:16:02 ERROR order-service Order creation rejected error_code=PAYMENT_SERVICE_UNAVAILABLE
+2026-08-31 09:16:05 ERROR payment-service Payment service unavailable
+2026-08-31 09:17:10 INFO payment-service Database connection restored
+2026-08-31 09:17:11 INFO payment-service Connection pool recovering active=20 max=100
+2026-08-31 09:17:20 INFO payment-service Health check successful
+2026-08-31 09:17:30 INFO payment-service Circuit breaker closed
+2026-08-31 09:18:01 INFO payment-service Payment service fully operational
+2026-08-31 09:18:15 INFO payment-service Payment request received request_id=REQ008 user_id=U110 amount=1500
+2026-08-31 09:18:16 INFO payment-service Payment processed successfully request_id=REQ008
