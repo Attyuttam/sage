@@ -1,0 +1,16 @@
+1st Sept 2026
+- Understood how the application works
+- when we run the cli.py (the entry point to the application) we provide the path to the logs
+- we can also provide the --last and --model and --ollama-url options
+- the default model is llama3.2 and the default ollama-url is http://localhost:11434
+- the application will parse the logs and send them to the ollama server for analysis
+- the ollama server will analyze the logs and return the analysis to the application
+- the application will then print the analysis to the console
+- the application is split into multiple modules for better organization
+    - cli.py is the entry point to the application
+    - parser.py is used to parse the logs
+    - analyzer.py is used to analyze the logs
+    - config.py is used to configure the application
+    - models.py is used to define the data models
+- the application is well-tested with comprehensive unit tests
+

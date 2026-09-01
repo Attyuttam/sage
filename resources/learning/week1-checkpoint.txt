@@ -1,0 +1,68 @@
+Python: 
+
+How does your program read the log file and turn it into 
+something the rest of the application can use?
+- The program reads the log file and then for every line, it extracts the 
+structured log out of it and parses them into timestamp, log level, service etc 
+and other parameters. it then converts these extracted parameters into structured
+JSON called LogEntry. These are list of LogEntry objects that are passed to the 
+LLM for analysis. Each log entry in the list contains timestamp, log level, service,
+message, and metadata (optional key-value pairs extracted from the log message).
+
+LLM: 
+
+What exactly happens when you send a prompt to the local model?
+- The prompt is sent to the Ollama server as an HTTP request to the 
+/api/generate endpoint. The request is sent as a POST request with a 
+JSON body containing the prompt and other parameters. The Ollama server
+processes the prompt and returns a JSON response containing the generated
+text. The response is sent back to the application as an HTTP response.
+- The response from the Ollama server is a JSON object containing the 
+generated text. This JSON object is then parsed to extract the generated
+text. The parsed text is then printed to the console as the analysis result.
+
+Ollama: 
+
+Why can your application use the LLM without paying for an API?
+- Because the applications uses a model llama3 that is running locally
+on the Ollama server. This means, that my own system's resources are being 
+used to run the model. Thus, Sage is being able to use an LLm without
+paying for the API.
+
+Integration: 
+
+How does your Python application communicate with Ollama?
+- The application connects with Ollama via HTTP request to the /api/generate
+endpoint. The request is sent as a POST request with a JSON body containing 
+the prompt and other parameters. The Ollama server processes the prompt and 
+returns a JSON response containing the generated text.
+- The response is then parsed to extract the generated text. The parsed text
+is then printed to the console as the analysis result.
+
+Failure: 
+
+What happens if Ollama isn't running?
+- The HTTP request fails and the application generates a log asking the user
+to confirm if the ollama server is running locally or not.
+
+Data: 
+
+What happens if the log file is huge?
+- The application will read the file line by line and parse it. Howerever, if the file 
+is huge, it might take a lot of time to parse and it will consume a lot of memory.  
+The user can provide the number of recent log entries to be analysed using the 
+--last option in the command.
+
+Reliability: 
+
+What happens if the LLM produces a completely incorrect analysis?
+- the analysis done by the LLM is probabilistic. There is no guarantee that 
+the analysis will be correct. As of now, there are no guards to analyze the response
+from the model, so that is something that we should take up in the upcoming versions
+of the application.
+
+Architecture: 
+
+Which parts of your application are deterministic, and which parts are probabilistic?
+- The parser, configuration, data model (LogEntry) and the CLI are deterministic. 
+- The LLM is probabilistic.

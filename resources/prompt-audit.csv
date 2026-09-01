@@ -41,3 +41,6 @@ Do not use LangChain, LangGraph, RAG, vector databases or any other AI framework
 2. Added tests for prompt construction, mocked HTTP streaming, connection failure, and 404 status.
 3. Added tests for CLI argument parsing, missing log file, empty file, and entry slicing.
 4. Verified all 23 unit tests pass in 0.13s."
+"put a mermaid diagram explaining the code flow, date the file name of the mermaid diagram to today's date.","1. Created resources/2026-09-01-code-flow.mmd containing the complete sequence diagram.
+2. Formatted as pure Mermaid syntax starting directly with sequenceDiagram.
+3. Mapped end-to-end execution across cli.py, config.py, parser.py, models.py, and analyzer.py."
