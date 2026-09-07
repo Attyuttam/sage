@@ -1,12 +1,18 @@
-"""Unit tests for the LLM analyzer and prompt construction."""
-
+import json
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 import pytest
 import httpx
+from pydantic import ValidationError
 
-from analyzer import analyze, _build_prompt, _stream_response
-from models import LogEntry
+from analyzer import (
+    LLMParseError,
+    LLMValidationError,
+    analyze,
+    _build_prompt,
+    _generate_analysis,
+)
+from models import IncidentAnalysis, LogEntry
 
 
 @pytest.fixture
@@ -32,14 +38,17 @@ def sample_entries() -> list[LogEntry]:
 class TestPromptBuilder:
     """Test prompt template generation from log entries."""
 
-    def test_build_prompt_contains_sre_persona_and_instructions(self, sample_entries: list[LogEntry]):
+    def test_build_prompt_contains_sre_persona_and_json_schema(self, sample_entries: list[LogEntry]):
         prompt = _build_prompt(sample_entries)
 
         assert "senior Site Reliability Engineer" in prompt
-        assert "A brief summary of what happened" in prompt
-        assert "Root cause analysis" in prompt
-        assert "timeline of the incident" in prompt
-        assert "Recommended actions" in prompt
+        assert "ONLY with a single valid JSON object" in prompt
+        assert '"severity": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"' in prompt
+        assert '"affected_services"' in prompt
+        assert '"primary_issue"' in prompt
+        assert '"probable_cause"' in prompt
+        assert '"evidence"' in prompt
+        assert '"confidence"' in prompt
 
     def test_build_prompt_contains_serialized_log_lines(self, sample_entries: list[LogEntry]):
         prompt = _build_prompt(sample_entries)
@@ -48,56 +57,111 @@ class TestPromptBuilder:
         assert "2026-08-31 09:05:18 ERROR payment-service Database connection timeout request_id=REQ003" in prompt
 
 
-class TestAnalyzerStreaming:
-    """Test HTTP client and Ollama streaming logic with mocked network calls."""
+class TestAnalyzerGeneration:
+    """Test HTTP client and Ollama generation logic with mocked network calls."""
 
     @patch("analyzer.httpx.Client")
-    def test_stream_response_success(self, mock_client_cls, capsys):
-        # Mock streaming response
+    def test_generate_analysis_success(self, mock_client_cls):
+        # Mock non-streaming response returning valid IncidentAnalysis JSON
+        valid_json = (
+            '{"severity": "HIGH", "affected_services": ["payment-service"], '
+            '"primary_issue": "DB Timeout", "probable_cause": "Pool exhausted", '
+            '"evidence": ["09:05:18 DB_TIMEOUT"], "confidence": 0.95}'
+        )
+
         mock_response = MagicMock()
         mock_response.raise_for_status.return_value = None
-        mock_response.iter_lines.return_value = [
-            '{"response": "Root ", "done": false}',
-            '{"response": "cause: ", "done": false}',
-            '{"response": "DB timeout", "done": true}',
-        ]
-
-        mock_context = MagicMock()
-        mock_context.__enter__.return_value = mock_response
-        mock_context.__exit__.return_value = None
+        mock_response.json.return_value = {"response": valid_json}
 
         mock_client = MagicMock()
-        mock_client.stream.return_value = mock_context
+        mock_client.post.return_value = mock_response
 
         mock_client_context = MagicMock()
         mock_client_context.__enter__.return_value = mock_client
         mock_client_context.__exit__.return_value = None
         mock_client_cls.return_value = mock_client_context
 
-        _stream_response("test prompt", model="llama3.2", ollama_url="http://localhost:11434")
+        result = _generate_analysis("test prompt", model="llama3.2", ollama_url="http://localhost:11434")
 
-        captured = capsys.readouterr()
-        assert "Root cause: DB timeout" in captured.out
+        # Verify validated IncidentAnalysis return object
+        assert isinstance(result, IncidentAnalysis)
+        assert result.severity == "HIGH"
+        assert result.affected_services == ["payment-service"]
+        assert result.primary_issue == "DB Timeout"
+        assert result.confidence == 0.95
+
+        # Verify POST payload
+        mock_client.post.assert_called_once_with(
+            "http://localhost:11434/api/generate",
+            json={
+                "model": "llama3.2",
+                "prompt": "test prompt",
+                "stream": False,
+                "format": "json",
+            },
+        )
 
     @patch("analyzer.httpx.Client")
-    def test_stream_response_connection_error(self, mock_client_cls, capsys):
+    def test_generate_analysis_invalid_json(self, mock_client_cls):
+        # Mock response returning non-JSON plain text
+        mock_response = MagicMock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = {"response": "This is plain text, not JSON"}
+
         mock_client = MagicMock()
-        mock_client.stream.side_effect = httpx.ConnectError("Connection refused")
+        mock_client.post.return_value = mock_response
 
         mock_client_context = MagicMock()
         mock_client_context.__enter__.return_value = mock_client
         mock_client_context.__exit__.return_value = None
         mock_client_cls.return_value = mock_client_context
 
-        with pytest.raises(SystemExit) as exc_info:
-            _stream_response("test prompt", model="llama3.2", ollama_url="http://localhost:11434")
+        with pytest.raises(LLMParseError) as exc_info:
+            _generate_analysis("test prompt", model="llama3.2", ollama_url="http://localhost:11434")
 
-        assert exc_info.value.code == 1
-        captured = capsys.readouterr()
-        assert "Could not connect to Ollama" in captured.err
+        assert "LLM returned invalid JSON" in str(exc_info.value)
+        assert isinstance(exc_info.value.__cause__, json.JSONDecodeError)
 
     @patch("analyzer.httpx.Client")
-    def test_stream_response_http_status_error(self, mock_client_cls, capsys):
+    def test_generate_analysis_schema_validation_error(self, mock_client_cls):
+        # Mock response returning valid JSON but invalid schema
+        invalid_schema_json = '{"severity": "UNKNOWN", "affected_services": [], "primary_issue": "none", "probable_cause": "none", "evidence": [], "confidence": 5.0}'
+        mock_response = MagicMock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = {"response": invalid_schema_json}
+
+        mock_client = MagicMock()
+        mock_client.post.return_value = mock_response
+
+        mock_client_context = MagicMock()
+        mock_client_context.__enter__.return_value = mock_client
+        mock_client_context.__exit__.return_value = None
+        mock_client_cls.return_value = mock_client_context
+
+        with pytest.raises(LLMValidationError) as exc_info:
+            _generate_analysis("test prompt", model="llama3.2", ollama_url="http://localhost:11434")
+
+        assert "LLM output failed schema validation" in str(exc_info.value)
+        assert isinstance(exc_info.value.__cause__, ValidationError)
+
+    @patch("analyzer.httpx.Client")
+    def test_generate_analysis_connection_error(self, mock_client_cls):
+        mock_client = MagicMock()
+        mock_client.post.side_effect = httpx.ConnectError("Connection refused")
+
+        mock_client_context = MagicMock()
+        mock_client_context.__enter__.return_value = mock_client
+        mock_client_context.__exit__.return_value = None
+        mock_client_cls.return_value = mock_client_context
+
+        with pytest.raises(ConnectionError) as exc_info:
+            _generate_analysis("test prompt", model="llama3.2", ollama_url="http://localhost:11434")
+
+        assert "Could not connect to Ollama" in str(exc_info.value)
+        assert isinstance(exc_info.value.__cause__, httpx.ConnectError)
+
+    @patch("analyzer.httpx.Client")
+    def test_generate_analysis_http_status_error(self, mock_client_cls):
         mock_response = MagicMock()
         mock_response.status_code = 404
         mock_error = httpx.HTTPStatusError(
@@ -107,26 +171,36 @@ class TestAnalyzerStreaming:
         )
 
         mock_client = MagicMock()
-        mock_client.stream.side_effect = mock_error
+        mock_client.post.side_effect = mock_error
 
         mock_client_context = MagicMock()
         mock_client_context.__enter__.return_value = mock_client
         mock_client_context.__exit__.return_value = None
         mock_client_cls.return_value = mock_client_context
 
-        with pytest.raises(SystemExit) as exc_info:
-            _stream_response("test prompt", model="non-existent-model", ollama_url="http://localhost:11434")
+        with pytest.raises(RuntimeError) as exc_info:
+            _generate_analysis("test prompt", model="non-existent-model", ollama_url="http://localhost:11434")
 
-        assert exc_info.value.code == 1
-        captured = capsys.readouterr()
-        assert "Ollama returned status 404" in captured.err
+        assert "Ollama returned status 404" in str(exc_info.value)
+        assert isinstance(exc_info.value.__cause__, httpx.HTTPStatusError)
 
-    @patch("analyzer._stream_response")
-    def test_analyze_orchestration(self, mock_stream, sample_entries: list[LogEntry]):
-        analyze(sample_entries, model="mistral", ollama_url="http://custom:11434")
+    @patch("analyzer._generate_analysis")
+    def test_analyze_orchestration(self, mock_generate, sample_entries: list[LogEntry]):
+        expected = IncidentAnalysis(
+            severity="CRITICAL",
+            affected_services=["payment-service"],
+            primary_issue="DB Outage",
+            probable_cause="Timeout",
+            evidence=["09:05:18 DB_TIMEOUT"],
+            confidence=0.9,
+        )
+        mock_generate.return_value = expected
 
-        mock_stream.assert_called_once()
-        call_args, call_kwargs = mock_stream.call_args
+        result = analyze(sample_entries, model="mistral", ollama_url="http://custom:11434")
+
+        assert result == expected
+        mock_generate.assert_called_once()
+        call_args, call_kwargs = mock_generate.call_args
         prompt_arg = call_args[0]
         assert "senior Site Reliability Engineer" in prompt_arg
         assert call_kwargs["model"] == "mistral"

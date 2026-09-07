@@ -1,0 +1,49 @@
+02-Sept-2026
+
+Mental model of how does Pydantic work
+ 
+              json.loads()
+JSON string ────────────────→ Python dict
+                                  │
+                                  │ model_validate()
+                                  ▼
+                           Pydantic object
+                                  │
+                                  │ model_dump()
+                                  ▼
+                              Python dict
+                                  │
+                                  │ json.dumps()
+                                  ▼
+                             JSON string
+
+
+JSON parsing              Data validation
+
+json.loads()              Pydantic
+     │                         │
+     ▼                         ▼
+JSON → Python            Python → validated model
+
+
+
+Serialization vs validation vs parsing
+
+             PARSING
+JSON ──────────────────→ Python
+       json.loads()
+
+
+             VALIDATION
+Python ─────────────────→ Pydantic
+       model_validate()
+
+
+             SERIALIZATION
+Pydantic ────────────────→ Python
+       model_dump()
+
+
+             JSON SERIALIZATION
+Python ──────────────────→ JSON
+       json.dumps()

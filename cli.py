@@ -3,7 +3,7 @@
 import argparse
 import sys
 
-from analyzer import analyze
+from analyzer import LLMParseError, LLMValidationError, analyze
 from config import DEFAULT_MODEL, OLLAMA_URL
 from parser import parse_file
 
@@ -32,7 +32,25 @@ def main() -> None:
     print(f"Parsed {len(entries)} log entries. Sending to {args.model}...\n")
 
     # Analyze
-    analyze(entries, model=args.model, ollama_url=args.ollama_url)
+    try:
+        result = analyze(entries, model=args.model, ollama_url=args.ollama_url)
+    except (LLMParseError, LLMValidationError, ConnectionError, RuntimeError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    # Display validated structured report
+    print("\n" + "=" * 60)
+    print("           VALIDATED INCIDENT ANALYSIS REPORT")
+    print("=" * 60)
+    print(f"Severity:          {result.severity}")
+    print(f"Affected Services: {', '.join(result.affected_services)}")
+    print(f"Primary Issue:     {result.primary_issue}")
+    print(f"Probable Cause:    {result.probable_cause}")
+    print(f"Confidence:        {result.confidence * 100:.1f}%")
+    print("Evidence:")
+    for item in result.evidence:
+        print(f"  • {item}")
+    print("=" * 60)
 
 
 def _parse_args() -> argparse.Namespace:

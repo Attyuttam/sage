@@ -4,9 +4,10 @@ from datetime import datetime
 from unittest.mock import patch
 import pytest
 
+from analyzer import LLMParseError, LLMValidationError
 from cli import _parse_args, main
 from config import DEFAULT_MODEL, OLLAMA_URL
-from models import LogEntry
+from models import IncidentAnalysis, LogEntry
 
 
 class TestCliArgs:
@@ -67,6 +68,14 @@ class TestCliMain:
             for _ in range(5)
         ]
         mock_parse.return_value = entries
+        mock_analyze.return_value = IncidentAnalysis(
+            severity="HIGH",
+            affected_services=["auth"],
+            primary_issue="Auth degradation",
+            probable_cause="Auth timeouts",
+            evidence=["09:00:01 INFO"],
+            confidence=0.9,
+        )
         monkeypatch.setattr("sys.argv", ["sage", "dummy.log", "--last", "2"])
 
         main()
@@ -78,6 +87,8 @@ class TestCliMain:
 
         captured = capsys.readouterr()
         assert "Parsed 2 log entries" in captured.out
+        assert "VALIDATED INCIDENT ANALYSIS REPORT" in captured.out
+        assert "Severity:          HIGH" in captured.out
 
     @patch("cli.parse_file", side_effect=FileNotFoundError("Log file not found: test.log"))
     def test_main_file_not_found(self, mock_parse, monkeypatch, capsys):
@@ -98,3 +109,25 @@ class TestCliMain:
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
         assert "No log entries found in the file." in captured.err
+
+    @patch("cli.analyze", side_effect=LLMParseError("Malformed JSON string"))
+    @patch("cli.parse_file", return_value=[LogEntry(datetime(2026, 8, 31, 9, 0, 0), "INFO", "svc", "msg")])
+    def test_main_llm_parse_error(self, mock_parse, mock_analyze, monkeypatch, capsys):
+        monkeypatch.setattr("sys.argv", ["sage", "app.log"])
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "Error: Malformed JSON string" in captured.err
+
+    @patch("cli.analyze", side_effect=LLMValidationError("Invalid severity value"))
+    @patch("cli.parse_file", return_value=[LogEntry(datetime(2026, 8, 31, 9, 0, 0), "INFO", "svc", "msg")])
+    def test_main_llm_validation_error(self, mock_parse, mock_analyze, monkeypatch, capsys):
+        monkeypatch.setattr("sys.argv", ["sage", "app.log"])
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "Error: Invalid severity value" in captured.err
