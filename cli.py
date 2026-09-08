@@ -34,7 +34,7 @@ def main() -> None:
     # Analyze
     try:
         result = analyze(entries, model=args.model, ollama_url=args.ollama_url)
-    except (LLMParseError, LLMValidationError, ConnectionError, RuntimeError) as exc:
+    except (LLMParseError, LLMValidationError, ConnectionError, TimeoutError, RuntimeError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 

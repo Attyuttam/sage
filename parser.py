@@ -35,19 +35,19 @@ def parse_file(path: str) -> list[LogEntry]:
     entries: list[LogEntry] = []
 
     with open(log_path, encoding="utf-8") as f:
-        for line_number, raw_line in enumerate(f, start=1):
+        for raw_line in f:
             line = raw_line.strip()
             if not line:
                 continue
 
-            entry = _parse_line(line, line_number)
+            entry = _parse_line(line)
             if entry is not None:
                 entries.append(entry)
 
     return entries
 
 
-def _parse_line(line: str, line_number: int) -> LogEntry | None:
+def _parse_line(line: str) -> LogEntry | None:
     """Parse a single log line into a LogEntry, or None if it doesn't match."""
     match = _LINE_PATTERN.match(line)
     if not match:

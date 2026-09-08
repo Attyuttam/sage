@@ -32,6 +32,8 @@ python cli.py resources/application.log
 
 ## How it works
 
-1. **Parse** — Reads the log file and extracts structured entries (timestamp, level, service, message, metadata)
-2. **Prompt** — Builds an analysis prompt from the parsed entries
-3. **Analyze** — Streams the prompt to Ollama and prints the LLM's response in real time
+1. **Parse** — Reads the log file and extracts structured entries (timestamp, level, service, message, metadata).
+2. **Prompt** — Builds one structured incident-analysis prompt from the parsed entries.
+3. **Analyze** — Sends a non-streaming request to Ollama (`stream=False`, `format="json"`) and receives structured JSON output.
+4. **Validate** — Parses the model response with `json.loads()` and validates it with Pydantic's `IncidentAnalysis` model.
+5. **Retry and report** — Retries malformed or schema-invalid model output up to three total attempts. Connection, timeout, and HTTP failures are reported by the CLI as clear error messages with a non-zero exit code; validated results are printed as an incident report.

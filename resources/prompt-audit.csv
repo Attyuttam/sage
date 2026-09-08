@@ -60,3 +60,11 @@ Do not use LangChain, LangGraph, RAG, vector databases or any other AI framework
 2. Removed all sys.exit() calls from analyzer.py, raising chained exceptions with from exc.
 3. Updated cli.py to catch domain exceptions, print user-friendly errors, and exit with status 1.
 4. Added tests for malformed JSON, schema validation failure, and CLI error handling; all 41 unit tests pass."
+"Improve prompt construction in analyzer.py with explicit sections, untrusted log delimiters (<log_data>), syntactically valid JSON example, and strict field specifications.","1. Refactored _build_prompt in analyzer.py into distinct sections: role/task, critical instructions, output contract, valid JSON example, and untrusted log data.
+2. Added <log_data> and </log_data> tag boundaries with explicit instruction that log data is raw untrusted input.
+3. Provided syntactically valid JSON example matching IncidentAnalysis schema (removed pseudo-JSON syntax).
+4. Explicitly defined types, constraints, and fallback values when no issues are found.
+5. Added unit tests for boundaries, untrusted data directives, output contract, and JSON example validity; all 45 unit tests pass."
+"Complete Week 2 validation exercise with explicit tests for valid incident data, missing fields, SUPER_CRITICAL severity, and out-of-bound confidence (-0.2, 1.5).","1. Updated tests/test_models.py to explicitly test all 5 requested validation scenarios.
+2. Verified expected ValidationError types (missing, literal_error, greater_than_equal, less_than_equal).
+3. Ran full test suite; all 46 unit tests pass."

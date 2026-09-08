@@ -15,7 +15,7 @@ sequenceDiagram
     CLI->>Parser: parse_file("resources/application.log")
 
     loop For each non-empty line in log file
-        Parser->>Parser: _parse_line(raw_line, line_number)
+        Parser->>Parser: _parse_line(raw_line)
         Parser->>Parser: Extract regex groups & key=value metadata
         Parser->>Models: Instantiate LogEntry(timestamp, level, service, message, metadata)
         Models-->>Parser: LogEntry instance
@@ -25,14 +25,17 @@ sequenceDiagram
     Note over CLI: Slice list to last 20 entries (entries[-20:])
 
     CLI->>Analyzer: analyze(entries, model="llama3.2", ollama_url="http://localhost:11434")
-    Analyzer->>Analyzer: _build_prompt(entries) [Formats SRE persona & log lines]
+    Analyzer->>Analyzer: _build_prompt(entries) once
 
-    Analyzer->>Ollama: POST http://localhost:11434/api/generate {"model": "llama3.2", "prompt": "...", "stream": true}
-
-    loop Stream NDJSON Chunks
-        Ollama-->>Analyzer: {"response": "token", "done": false}
-        Analyzer-->>User: sys.stdout.write(token) (Live streaming to terminal)
+    loop Up to 3 attempts for invalid LLM output
+        Analyzer->>Ollama: POST /api/generate {"model": "llama3.2", "prompt": "...", "stream": false, "format": "json"}
+        Ollama-->>Analyzer: JSON response envelope
+        Analyzer->>Analyzer: json.loads(data["response"])
+        Analyzer->>Models: IncidentAnalysis.model_validate(parsed JSON)
+        Models-->>Analyzer: Validated IncidentAnalysis
     end
 
-    Ollama-->>Analyzer: {"response": "", "done": true}
-    Analyzer-->>User: Final newline & exit 0
+    Analyzer-->>CLI: IncidentAnalysis
+    CLI-->>User: Print validated incident report
+
+    Note over Analyzer,CLI: LLMParseError and LLMValidationError retry. Connection, timeout, and HTTP errors reach the CLI, which prints an error and exits with status 1.

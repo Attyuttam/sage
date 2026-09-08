@@ -39,7 +39,12 @@ def main():
     print("Type:", type(parsed_dict))
     print("Value:", parsed_dict)
 
-    print("\n=== STEP 4: Validate with Pydantic (model_validate) ===")
+    print("\n=== STEP 3: Serialize Python dict to JSON (json.dumps) ===")
+    serialized_dict = json.dumps(parsed_dict, indent=2, default=str)
+    print("Type:", type(serialized_dict))
+    print(serialized_dict)
+
+    print("\n=== STEP 4: Validate with Pydantic BaseModel (model_validate) ===")
     incident = Incident.model_validate(parsed_dict)
     print("Type:", type(incident))
     print("Object:", incident)

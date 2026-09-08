@@ -1,0 +1,37 @@
+                    application.log
+                          │
+                          ▼
+                    Python parser
+                          │
+                          ▼
+                     LogEntry
+                          │
+                          ▼
+                       Prompt
+                          │
+                          ▼
+                       Ollama
+                          │
+                    ┌─────┴─────┐
+                    │           │
+                 success      failure
+                    │           │
+                    ▼           ▼
+               JSON output    retry
+                    │        (max 3)
+                    ▼
+                json.loads()
+                    │
+                    ▼
+              Python dict
+                    │
+                    ▼
+        IncidentAnalysis validation
+                │         │
+             valid       invalid
+                │         │
+                ▼         └──→ retry/error
+        IncidentAnalysis
+                │
+                ▼
+               CLI

@@ -1,0 +1,34 @@
+8th Sep, 2026
+
+1.Why is JSON preferable to arbitrary text for a software application?
+- JSON (JavaScript Object Notation) is preferable to arbitrary text 
+for software applications because it provides a structured,
+standardized format for data exchange and storage. 
+
+2. What does Pydantic actually do?
+- Pydantic ensures that the structured JSON data from the LLM 
+matches the defined schema. It validates the data,
+converting types and raising errors if the data is invalid. This way
+we can be sure that no unnecessary or malicious information from the 
+LLM is parsed.
+
+3. Why shouldn't you blindly trust LLM output?
+- LLM outputs are probabilistic in nature. They are not guaranteed to be 
+correct or safe. They can also be malicious or harmful. 
+
+4. What's the difference between: invalid JSON and: valid JSON but invalid schema
+- Invalid JSON refers to JSON that is illformed like keys without quotes etc
+- Valid JSON but invalid schema refers to JSON that is syntactically correct
+but does not conform to the expected schema.
+
+5. Why do we limit retries?
+- We limit retries to avoid infinite loops being formed. Also intelligent
+retries like not retrying post a connection error etc is helpful for faster
+execution
+
+6. Which parts of this pipeline are deterministic?
+- Parsing the log file
+- Pydantic validation
+
+7. Which part is probabilistic?
+- LLM inference

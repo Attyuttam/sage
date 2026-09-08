@@ -90,6 +90,46 @@ class TestCliMain:
         assert "VALIDATED INCIDENT ANALYSIS REPORT" in captured.out
         assert "Severity:          HIGH" in captured.out
 
+    @patch("cli.analyze")
+    @patch("cli.parse_file")
+    def test_main_last_zero_analyzes_all_entries(self, mock_parse, mock_analyze, monkeypatch, capsys):
+        entries = [LogEntry(datetime(2026, 8, 31, 9, 0, 1), "INFO", "auth", "ok", {}) for _ in range(3)]
+        mock_parse.return_value = entries
+        mock_analyze.return_value = IncidentAnalysis(
+            severity="LOW",
+            affected_services=[],
+            primary_issue="Normal operation - no issues detected",
+            probable_cause="N/A",
+            evidence=[],
+            confidence=0.9,
+        )
+        monkeypatch.setattr("sys.argv", ["sage", "dummy.log", "--last", "0"])
+
+        main()
+
+        assert mock_analyze.call_args[0][0] == entries
+        assert "Parsed 3 log entries" in capsys.readouterr().out
+
+    @patch("cli.analyze")
+    @patch("cli.parse_file")
+    def test_main_last_larger_than_entries_analyzes_all_entries(self, mock_parse, mock_analyze, monkeypatch, capsys):
+        entries = [LogEntry(datetime(2026, 8, 31, 9, 0, 1), "INFO", "auth", "ok", {}) for _ in range(3)]
+        mock_parse.return_value = entries
+        mock_analyze.return_value = IncidentAnalysis(
+            severity="LOW",
+            affected_services=[],
+            primary_issue="Normal operation - no issues detected",
+            probable_cause="N/A",
+            evidence=[],
+            confidence=0.9,
+        )
+        monkeypatch.setattr("sys.argv", ["sage", "dummy.log", "--last", "10"])
+
+        main()
+
+        assert mock_analyze.call_args[0][0] == entries
+        assert "Parsed 3 log entries" in capsys.readouterr().out
+
     @patch("cli.parse_file", side_effect=FileNotFoundError("Log file not found: test.log"))
     def test_main_file_not_found(self, mock_parse, monkeypatch, capsys):
         monkeypatch.setattr("sys.argv", ["sage", "test.log"])

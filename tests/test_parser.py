@@ -12,7 +12,7 @@ class TestLogLineParser:
 
     def test_parse_valid_line_with_metadata(self):
         raw = "2026-08-31 09:05:15 WARN payment-service Database response slow request_id=REQ003 latency_ms=2800"
-        entry = _parse_line(raw, line_number=1)
+        entry = _parse_line(raw)
 
         assert entry is not None
         assert entry.timestamp == datetime(2026, 8, 31, 9, 5, 15)
@@ -23,7 +23,7 @@ class TestLogLineParser:
 
     def test_parse_valid_line_without_metadata(self):
         raw = "2026-08-31 09:17:20 INFO payment-service Health check successful"
-        entry = _parse_line(raw, line_number=1)
+        entry = _parse_line(raw)
 
         assert entry is not None
         assert entry.timestamp == datetime(2026, 8, 31, 9, 17, 20)
@@ -35,14 +35,14 @@ class TestLogLineParser:
     def test_parse_all_supported_levels(self):
         for level in ["INFO", "WARN", "ERROR", "DEBUG", "FATAL"]:
             raw = f"2026-08-31 09:00:00 {level} test-service Test message"
-            entry = _parse_line(raw, line_number=1)
+            entry = _parse_line(raw)
             assert entry is not None
             assert entry.level == level
 
     def test_parse_invalid_line_returns_none(self):
-        assert _parse_line("This is not a log line", line_number=1) is None
-        assert _parse_line("2026-99-99 99:99:99 INFO test-service Invalid date", line_number=1) is None
-        assert _parse_line("   ", line_number=1) is None
+        assert _parse_line("This is not a log line") is None
+        assert _parse_line("2026-99-99 99:99:99 INFO test-service Invalid date") is None
+        assert _parse_line("   ") is None
 
 
 class TestLogFileParser:

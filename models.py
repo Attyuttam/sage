@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 @dataclass
@@ -48,7 +48,16 @@ class IncidentAnalysis(BaseModel):
 
     severity: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"]
     affected_services: list[str]
-    primary_issue: str
-    probable_cause: str
+    primary_issue: str = Field(..., min_length=1)
+    probable_cause: str = Field(..., min_length=1)
     evidence: list[str]
     confidence: float = Field(..., ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def evidence_required_for_high_critical(self) -> "IncidentAnalysis":
+        """For HIGH or CRITICAL incidents, at least one evidence entry is required."""
+        if self.severity in ("HIGH", "CRITICAL") and not self.evidence:
+            raise ValueError(
+                f"severity '{self.severity}' requires at least one evidence entry, but evidence is empty."
+            )
+        return self
