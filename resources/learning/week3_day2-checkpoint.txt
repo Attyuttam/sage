@@ -1,0 +1,69 @@
+What does temperature actually control?
+- Temperature controls the probability of the tokens that comes up in the LLM's output.
+Higher temperature means the tokens that were less likely to be picked up might have
+a higher probability now. And vice versa.
+
+**One precision: temperature doesn't directly "control the probability of tokens in the output." It changes the probability distribution used for sampling the next token.
+
+What is sampling?
+- Sampling is the process of selecting the next token based on the probability 
+distribution.
+
+
+Why doesn't temperature = 0 mean "the answer will be correct"?
+- The answer is based on the evidence provided. Temperature merely affects
+the token that will come up in the output and not the correctness of the output.
+Thus it can still be wrong.
+
+Why did your 0.5 experiment potentially produce the exact same answer three times?
+- The probability distribution across the tokens were relatively less distributed.
+Hence, everytime, the LLM ended up picking up the same tokens into the answer.
+
+
+What changed at temperature 1.0 in your experiment?
+- The probability distribution across the tokens became more uniform.
+And the correctness of the answer remained the same but the answer itself
+varied.
+
+Does higher temperature necessarily mean lower accuracy? Why?
+- Not really, because the correctness of the answer is dependent on the 
+evidence provided to the LLM not on the temperature.
+
+**Temperature can sometimes affect correctness indirectly because a different sampled sequence can lead to a different answer.
+
+Based on today's experiment, would you use a high temperature for Sage? Why or why not?
+- Yes, because the correctness will not be impacted but the answers will have a better variaion
+
+** I would not choose high temperature for Sage based on this experiment.
+
+Why?
+
+Sage is an incident diagnosis tool.
+
+We generally want:
+
+Same evidence
+     ↓
+Stable diagnosis
+     ↓
+Predictable output
+
+We don't particularly want:
+
+Same incident
+     ↓
+Different evidence selection
+     ↓
+Different wording/conclusions
+
+Variation is useful for some applications—creative writing, brainstorming, etc.
+
+But for something like Sage, consistency is valuable.
+
+Based on today's experiment, I'd tentatively choose something around:
+
+temperature = 0.0
+
+or another low temperature, not because 0.0 guarantees correctness, but because our goal is reliable, repeatable incident analysis.
+
+And remember: this is a hypothesis based on a tiny experiment, not a universal rule.

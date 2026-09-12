@@ -1,0 +1,43 @@
+Your Day 1 mental model
+
+You should now have this:
+
+More log data
+      ↓
+More characters
+      ↓
+Generally more tokens
+      ↓
+More context consumed
+      ↓
+Potentially more computation/latency
+
+BUT
+
+More relevant context
+      ↓
+More evidence available
+      ↓
+Potentially better reasoning
+
+
+
+And therefore:
+
+           TOO LITTLE
+               ↓
+        insufficient evidence
+               ↓
+          poor answer
+
+             SWEET SPOT
+               ↓
+       enough relevant context
+               ↓
+          good answer
+
+           TOO MUCH
+               ↓
+     unnecessary context
+               ↓
+      latency / cost / noise

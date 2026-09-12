@@ -1,0 +1,30 @@
+1. What is a token?
+- A token is a chunk that the LLM understands. It can be a single word but 
+not necessarily, its a piece from the context that the LLM uses to infer
+answers.
+
+2. What is a context window?
+- Context window is the maximum number of tokens that an LLM can process at once. 
+
+3. Why can't we say 7,530 characters = 7,530 tokens?
+- Because the tokens can be half of the word or something. It need not be the 
+whole word itself. Thus there can be more or less number of tokens compared 
+to the number of words
+
+4. Looking at your experiment, why did the 5-entry analysis likely differ from 
+the 15-entry analysis?
+- Because the 5 entry analysis did not have all the information that the 
+15 entry analysis had. Thus it could not determine the root cause of the incident.
+
+5. Does more context always mean a better answer? Why?
+- Not necessarily, because sometimes too much context would also mean
+a lot of unnecessary information that would cause more latency or sometimes irrelevant 
+results.
+
+6. Why might the 65-entry experiment be less attractive than the 
+30-entry experiment even though both produced essentially the same analysis?
+- Latency was higher and the result was similar.
+
+7. What are we actually measuring with Prompt character count in today's experiment?
+- we are trying to understand whether more tokens means much better answer
+or there's a threshold to the quality of the answer that we get.
