@@ -1,0 +1,156 @@
+But how to select the model ? Based on this experiment I understood that the 8B model gave far better inference at the cost of 2.7x latency. But I still am not sure which model to select ? I would want better inferences in these critical SRE apps since that defines the health of the products but I cannot take that latency
+
+Yes — this is exactly the problem Day 4 is supposed to expose.
+
+You have discovered that “pick the better model” is not enough. You need a decision framework.
+
+Your situation is:
+
+Sage is an SRE application. A wrong inference can be more dangerous than a slow inference, but an 86-second response may be unacceptable.
+
+So I would not select the model based on today's experiment alone.
+
+Think in terms of constraints first
+
+Suppose Sage has these requirements:
+
+Requirement	Example target
+Correct diagnosis	≥ 95%
+Structured-output success	≥ 99%
+Response latency	≤ 30 sec
+False/unsafe RCA	Very low
+Infrastructure cost	Reasonable
+
+Now evaluate models against those requirements.
+
+Your experiment gives us roughly:
+
+	llama3.2	llama3.1:8b
+Schema success	100%	100%
+Core diagnosis	Good	Good
+Deeper causal reasoning	Good	Better
+Warm latency	~32s	~86s
+RAM	~2.6GB	~5.6GB
+
+If your SLA is 30 seconds, neither is technically meeting it.
+
+That immediately tells you something important:
+
+Model selection isn't “which one is better?” It's “which model satisfies my requirements at acceptable cost?”
+
+And there's a much more interesting architecture for Sage
+
+You don't necessarily have to choose one model.
+
+For a critical SRE system, I would consider:
+
+                 Logs
+                  ↓
+          Deterministic analysis
+          (parsing / rules / metrics)
+                  ↓
+             ┌────┴────┐
+             ↓         ↓
+          Simple      Complex
+          incident    incident
+             ↓         ↓
+         3B model    8B model
+             ↓         ↓
+             └────┬────┘
+                  ↓
+              Validation
+                  ↓
+              Final RCA
+
+For example:
+
+Simple incident
+DB connection pool exhausted
+active=100 max=100
+
+Very obvious.
+
+Use 3B.
+
+Complex incident
+Service A latency ↑
+       ↓
+Service B retries ↑
+       ↓
+Kafka lag ↑
+       ↓
+Service C timeout ↑
+       ↓
+partial failures
+
+Now the 8B model might be worth the extra latency.
+
+This gives you model routing.
+
+But there's an even more important issue
+
+You said:
+
+"I would want better inferences in these critical SRE apps since that defines the health of the products"
+
+I agree with the instinct, but I would change the architecture slightly.
+
+Don't make the LLM the authority that determines product health.
+
+Instead:
+
+Monitoring / metrics / alerts
+           ↓
+      Evidence layer
+           ↓
+      Deterministic rules
+           ↓
+       LLM analysis
+           ↓
+   Explanation / RCA hypothesis
+           ↓
+       Human / system
+
+The LLM should ideally answer:
+
+“Given this evidence, what is the most likely explanation?”
+
+rather than:
+
+“Is the product healthy?”
+
+That's a crucial distinction for a production SRE system.
+
+So what should YOU choose for Sage today?
+
+Based on this experiment alone, I'd keep llama3.2 as the default.
+
+Not because it is better.
+
+Because the 8B model's improvement is not yet demonstrated to be worth 2.7× latency for Sage's current workload. Your experiment used only one incident, and the report itself notes that more ambiguous incidents could produce a larger quality gap.
+
+But I would not permanently decide that 3B is the right model.
+
+Instead:
+
+3B = default model
+
+8B = escalation model for difficult incidents
+
+And eventually we'd test whether that routing strategy actually improves Sage.
+
+This is the real lesson of Day 4
+
+You started Day 4 asking:
+
+“Which model is better?”
+
+You're ending it asking:
+
+“What quality and latency does my application require, and how can I meet those requirements?”
+
+That second question is the one you need as an AI engineer/architect.
+
+And honestly, your concern here is valuable enough that I'd treat model routing as an architectural idea, not something we need to implement in Sage yet. First we need more evidence.
+
+So Day 4 is complete, but you've uncovered the exact question that later weeks on evaluation + reliability + production AI will teach you how to answer systematically.

@@ -1,0 +1,16 @@
+| Area          |                            Tests | Decision        |
+| ------------- | -------------------------------: | --------------- |
+| Parser        |   complex metadata/service names | ✅               |
+| Models        |  serialization + list validation | ✅               |
+| Analyzer      | prompt built once across retries | ✅               |
+| Analyzer      |                HTTP 500 behavior | ✅               |
+| Analyzer      |      end-to-end mocked HTTP flow | ✅               |
+| Config        |          log-level normalization | ✅               |
+| Config        |           invalid `MAX_ATTEMPTS` | ✅               |
+| CLI           |    infrastructure error handling | ✅               |
+| CLI           |                      `--version` | ✅               |
+| CLI           |              end-to-end pipeline | ✅               |
+| Logging       |     infrastructure error logging | ✅               |
+| Logging       |          CLI fatal-error logging | ✅               |
+| `conftest.py` |                  shared fixtures | ⚠️ optional     |
+| pytest config |                 `testpaths` etc. | ❌ not necessary |

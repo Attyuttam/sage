@@ -1,0 +1,109 @@
+sequenceDiagram
+    autonumber
+    actor User as User / Terminal
+    participant CLI as cli.py
+    participant Config as config.py
+    participant Logging as logging (stderr)
+    participant Parser as parser.py
+    participant Models as models.py
+    participant Analyzer as analyzer.py
+    participant Ollama as Ollama API (/api/generate)
+
+    %% 1. Startup & Configuration Resolution
+    User->>CLI: Run "sage <logfile> [options]"
+
+    CLI->>Config: Import settings & resolve defaults
+    Note over Config: Precedence: CLI Flag > SAGE_* Env Var > Hardcoded Default<br/>Resolves: OLLAMA_URL, DEFAULT_MODEL, TEMPERATURE, TIMEOUT, MAX_ATTEMPTS, LOG_LEVEL
+    Config-->>CLI: Resolved configuration values
+
+    CLI->>Logging: setup_logging(args.log_level)
+    Logging-->>CLI: Root logger configured to stderr
+    CLI->>Logging: logger.debug("Starting Sage CLI...")
+
+    %% 2. Log File Parsing
+    CLI->>Parser: parse_file(args.logfile)
+    Parser->>Logging: logger.debug("Reading log file: %s", path)
+
+    alt Log file does not exist
+        Parser-->>CLI: raise FileNotFoundError
+        CLI->>Logging: logger.error("Log file not found: %s", args.logfile)
+        CLI->>User: print "Error: <exc>" (stderr) & sys.exit(1)
+    end
+
+    loop For each non-empty line in log file
+        Parser->>Parser: _parse_line(line)
+        alt Regex matches and timestamp is valid
+            Parser->>Models: LogEntry(timestamp, level, service, message, metadata)
+            Models-->>Parser: LogEntry instance
+        else Unparseable format or invalid timestamp
+            Parser->>Logging: logger.debug("Skipping unparseable log line...")
+        end
+    end
+
+    Parser->>Logging: logger.info("Parsed %d log entries from %s", len(entries), path)
+    Parser-->>CLI: entries: list[LogEntry]
+
+    alt No valid entries found in file
+        CLI->>Logging: logger.warning("No log entries found in file: %s", args.logfile)
+        CLI->>User: print "No log entries found..." (stderr) & sys.exit(1)
+    end
+
+    opt args.last is specified
+        Note over CLI: Slice entries = entries[-args.last:]
+        CLI->>Logging: logger.debug("Limiting analysis to last %d entries", args.last)
+    end
+
+    CLI->>User: print "Parsed N log entries. Sending to <model>..." (stdout)
+
+    %% 3. Analysis Orchestration & Bounded Retries
+    CLI->>Analyzer: analyze(entries, model, ollama_url, temperature, timeout, max_attempts)
+    Analyzer->>Logging: logger.info("Starting incident analysis on %d entries...", len(entries))
+    Analyzer->>Analyzer: _build_prompt(entries) [Prompt constructed once]
+
+    loop Attempt 1 to max_attempts (default: 3)
+        Analyzer->>Logging: logger.debug("Executing analysis attempt %d/%d", attempt, max_attempts)
+        Analyzer->>Analyzer: _generate_analysis(prompt, model, ollama_url, temperature, timeout)
+        Analyzer->>Logging: logger.debug("Dispatching request to Ollama at %s...", url)
+
+        Analyzer->>Ollama: POST /api/generate<br/>{"model": model, "prompt": "...", "stream": false, "format": "json", "options": {"temperature": temperature}}<br/>[httpx.Client(timeout=timeout)]
+
+        alt Infrastructure Failure (Non-Retriable: Connection, Timeout, HTTP Error)
+            Ollama-->>Analyzer: Network Connection Error / Timeout / HTTP 4xx/5xx
+            Analyzer->>Logging: logger.error("Could not connect / timed out / HTTP status error")
+            Analyzer-->>CLI: raise ConnectionError / TimeoutError / RuntimeError
+            CLI->>Logging: logger.error("Analysis failed: %s", exc)
+            CLI->>User: print "Error: <exc>" (stderr) & sys.exit(1)
+        else Successful HTTP Response
+            Ollama-->>Analyzer: HTTP 200 {"response": "<raw_json_str>"}
+
+            Analyzer->>Analyzer: json.loads(raw_json_str)
+            alt Invalid JSON syntax
+                Analyzer-->>Analyzer: raise LLMParseError
+            else Syntactically valid JSON
+                Analyzer->>Models: IncidentAnalysis.model_validate(parsed_dict)
+                alt Schema / field constraint validation failure
+                    Models-->>Analyzer: raise ValidationError -> LLMValidationError
+                else Valid IncidentAnalysis schema
+                    Models-->>Analyzer: IncidentAnalysis instance
+                end
+            end
+
+            alt Quality Failure (LLMParseError or LLMValidationError)
+                alt attempt < max_attempts
+                    Analyzer->>Logging: logger.warning("Attempt %d/%d failed with %s. Retrying...", attempt, max_attempts, error)
+                    Note over Analyzer: Loop continues to next attempt
+                else attempt == max_attempts (Exhausted attempts)
+                    Analyzer->>Logging: logger.error("Analysis failed after %d attempts. Last error: %s", max_attempts, last_exc)
+                    Analyzer-->>CLI: raise LLMParseError / LLMValidationError
+                    CLI->>Logging: logger.error("Analysis failed: %s", exc)
+                    CLI->>User: print "Error: <exc>" (stderr) & sys.exit(1)
+                end
+            else Validation Succeeded
+                Analyzer->>Logging: logger.info("Analysis validated successfully on attempt %d/%d...", attempt, max_attempts)
+                Analyzer-->>CLI: result: IncidentAnalysis
+            end
+        end
+    end
+
+    %% 4. Final Output Display
+    CLI->>User: print VALIDATED INCIDENT ANALYSIS REPORT (stdout)

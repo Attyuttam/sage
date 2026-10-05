@@ -1,0 +1,248 @@
+[
+  {
+    "config_id": 1,
+    "model": "llama3.2",
+    "context_size": 30,
+    "temperature": 0.0,
+    "context_time_start": "2026-08-31 09:09:08",
+    "context_time_end": "2026-08-31 09:18:16",
+    "prompt_length_chars": 3862,
+    "status": "VALIDATED",
+    "attempts": 1,
+    "latency_seconds": 35.6352,
+    "error": null,
+    "prompt_eval_count": 1017,
+    "eval_count": 142,
+    "output": {
+      "severity": "CRITICAL",
+      "affected_services": [
+        "order-service",
+        "payment-service"
+      ],
+      "primary_issue": "Payment service dependency failure causing order creation failures",
+      "probable_cause": "Payment service dependency was unavailable, causing the order service to fail when trying to create orders",
+      "evidence": [
+        "2026-08-31 09:09:11 ERROR order-service Order creation failed order_id=ORD003 error_code=PAYMENT_SERVICE_UNAVAILABLE",
+        "2026-08-31 09:14:10 ERROR order-service Payment dependency failure error_rate=38_percent"
+      ],
+      "confidence": 0.9
+    }
+  },
+  {
+    "config_id": 2,
+    "model": "llama3.2",
+    "context_size": 30,
+    "temperature": 1.0,
+    "context_time_start": "2026-08-31 09:09:08",
+    "context_time_end": "2026-08-31 09:18:16",
+    "prompt_length_chars": 3862,
+    "status": "VALIDATED",
+    "attempts": 1,
+    "latency_seconds": 10.919,
+    "error": null,
+    "prompt_eval_count": 1017,
+    "eval_count": 109,
+    "output": {
+      "severity": "CRITICAL",
+      "affected_services": [
+        "payment-service"
+      ],
+      "primary_issue": "Payment Service Unavailability",
+      "probable_cause": "Database connection timeout and circuit breaker opened due to repeated failures",
+      "evidence": [
+        "2026-08-31 09:13:47 ERROR payment-service Database connection timeout request_id=REQ007",
+        "2026-08-31 09:15:00 WARN payment-service Circuit breaker opened failure_count=15 threshold=10"
+      ],
+      "confidence": 0.8
+    }
+  },
+  {
+    "config_id": 3,
+    "model": "llama3.2",
+    "context_size": 65,
+    "temperature": 0.0,
+    "context_time_start": "2026-08-31 09:00:01",
+    "context_time_end": "2026-08-31 09:18:16",
+    "prompt_length_chars": 6971,
+    "status": "VALIDATED",
+    "attempts": 1,
+    "latency_seconds": 49.3568,
+    "error": null,
+    "prompt_eval_count": 1922,
+    "eval_count": 119,
+    "output": {
+      "severity": "CRITICAL",
+      "affected_services": [
+        "payment-service"
+      ],
+      "primary_issue": "Payment Service Unavailability",
+      "probable_cause": "Database connection pool exhaustion and repeated failures led to the payment service becoming unavailable, causing orders to fail creation and user logins to fail.",
+      "evidence": [
+        "2026-08-31 09:08:16 ERROR payment-service Database connection pool exhausted active=100 max=100",
+        "2026-08-31 09:16:05 ERROR payment-service Payment service unavailable"
+      ],
+      "confidence": 0.9
+    }
+  },
+  {
+    "config_id": 4,
+    "model": "llama3.2",
+    "context_size": 65,
+    "temperature": 1.0,
+    "context_time_start": "2026-08-31 09:00:01",
+    "context_time_end": "2026-08-31 09:18:16",
+    "prompt_length_chars": 6971,
+    "status": "VALIDATED",
+    "attempts": 1,
+    "latency_seconds": 29.1395,
+    "error": null,
+    "prompt_eval_count": 1922,
+    "eval_count": 239,
+    "output": {
+      "severity": "CRITICAL",
+      "affected_services": [
+        "payment-service",
+        "order-service",
+        "inventory-service"
+      ],
+      "primary_issue": "Database connection timeout leading to Payment Service Unavailability",
+      "probable_cause": "Repeated failures to validate payments and create orders due to excessive database latency and connections timeouts, resulting in a cascade failure of the payment service.",
+      "evidence": [
+        "2026-08-31 09:05:15 WARN payment-service Database response slow request_id=REQ003 latency_ms=2800",
+        "2026-08-31 09:05:18 ERROR payment-service Database connection timeout request_id=REQ003",
+        "2026-08-31 09:05:18 ERROR payment-service Payment failed request_id=REQ003 error_code=DB_TIMEOUT",
+        "2026-08-31 09:08:10 WARN payment-service Database connection pool usage high active=95 max=100",
+        "2026-08-31 09:08:15 ERROR payment-service Database connection pool exhausted active=100 max=100"
+      ],
+      "confidence": 0.9
+    }
+  },
+  {
+    "config_id": 5,
+    "model": "llama3.1:8b",
+    "context_size": 30,
+    "temperature": 0.0,
+    "context_time_start": "2026-08-31 09:09:08",
+    "context_time_end": "2026-08-31 09:18:16",
+    "prompt_length_chars": 3862,
+    "status": "VALIDATED",
+    "attempts": 1,
+    "latency_seconds": 104.7563,
+    "error": null,
+    "prompt_eval_count": 1002,
+    "eval_count": 179,
+    "output": {
+      "severity": "HIGH",
+      "affected_services": [
+        "order-service",
+        "payment-service"
+      ],
+      "primary_issue": "Payment service dependency failure leading to order creation issues",
+      "probable_cause": "The payment service dependency was unavailable for an extended period, causing order creation failures. The issue was further exacerbated by a database connection pool exhaustion and a high error rate in payment requests.",
+      "evidence": [
+        "2026-08-31 09:09:08 WARN order-service Payment service dependency unavailable retry=2",
+        "2026-08-31 09:14:02 ERROR payment-service Database connection pool exhausted active=100 max=100",
+        "2026-08-31 09:14:03 ERROR payment-service Payment requests failing error_rate=42_percent"
+      ],
+      "confidence": 0.9
+    }
+  },
+  {
+    "config_id": 6,
+    "model": "llama3.1:8b",
+    "context_size": 30,
+    "temperature": 1.0,
+    "context_time_start": "2026-08-31 09:09:08",
+    "context_time_end": "2026-08-31 09:18:16",
+    "prompt_length_chars": 3862,
+    "status": "VALIDATED",
+    "attempts": 1,
+    "latency_seconds": 39.0137,
+    "error": null,
+    "prompt_eval_count": 1002,
+    "eval_count": 196,
+    "output": {
+      "severity": "HIGH",
+      "affected_services": [
+        "payment-service",
+        "order-service"
+      ],
+      "primary_issue": "Payment service unavailability leading to order creation failures",
+      "probable_cause": "Payment service dependency was unavailable multiple times, leading to circuit breaker activation and payment service becoming unavailable. Additionally, database connection pool was exhausted.",
+      "evidence": [
+        "2026-08-31 09:09:08 WARN order-service Payment service dependency unavailable retry=2",
+        "2026-08-31 09:13:44 WARN payment-service Database response slow request_id=REQ007 latency_ms=2900",
+        "2026-08-31 09:14:02 ERROR payment-service Database connection pool exhausted active=100 max=100",
+        "2026-08-31 09:16:05 ERROR payment-service Payment service unavailable"
+      ],
+      "confidence": 0.9
+    }
+  },
+  {
+    "config_id": 7,
+    "model": "llama3.1:8b",
+    "context_size": 65,
+    "temperature": 0.0,
+    "context_time_start": "2026-08-31 09:00:01",
+    "context_time_end": "2026-08-31 09:18:16",
+    "prompt_length_chars": 6971,
+    "status": "VALIDATED",
+    "attempts": 1,
+    "latency_seconds": 163.4061,
+    "error": null,
+    "prompt_eval_count": 1907,
+    "eval_count": 274,
+    "output": {
+      "severity": "CRITICAL",
+      "affected_services": [
+        "payment-service",
+        "order-service"
+      ],
+      "primary_issue": "Payment Service Unavailability and Database Connection Issues",
+      "probable_cause": "The payment service experienced a series of database connection timeouts, leading to payment failures and subsequent order creation failures. The issue was exacerbated by the payment service's circuit breaker being triggered due to repeated failures.",
+      "evidence": [
+        "2026-08-31 09:05:18 ERROR payment-service Database connection timeout request_id=REQ003",
+        "2026-08-31 09:05:18 ERROR payment-service Payment failed request_id=REQ003 error_code=DB_TIMEOUT",
+        "2026-08-31 09:07:35 ERROR payment-service Database connection timeout request_id=REQ004",
+        "2026-08-31 09:08:15 ERROR payment-service Database connection pool exhausted active=100 max=100",
+        "2026-08-31 09:09:11 ERROR order-service Order creation failed order_id=ORD003 error_code=PAYMENT_SERVICE_UNAVAILABLE",
+        "2026-08-31 09:15:00 WARN payment-service Circuit breaker opened failure_count=15 threshold=10"
+      ],
+      "confidence": 0.95
+    }
+  },
+  {
+    "config_id": 8,
+    "model": "llama3.1:8b",
+    "context_size": 65,
+    "temperature": 1.0,
+    "context_time_start": "2026-08-31 09:00:01",
+    "context_time_end": "2026-08-31 09:18:16",
+    "prompt_length_chars": 6971,
+    "status": "VALIDATED",
+    "attempts": 1,
+    "latency_seconds": 59.8209,
+    "error": null,
+    "prompt_eval_count": 1907,
+    "eval_count": 257,
+    "output": {
+      "severity": "CRITICAL",
+      "affected_services": [
+        "payment-service",
+        "order-service",
+        "user-service"
+      ],
+      "primary_issue": "Payment Service Downtime and Datastore Connection Pool Exhaustion",
+      "probable_cause": "Database connection pool exhaustion caused by a high failure rate in database responses, leading to a cascading failure in the payment service.",
+      "evidence": [
+        "2026-08-31 09:05:18 ERROR payment-service Database connection timeout request_id=REQ003",
+        "2026-08-31 09:05:22 ERROR payment-service Database connection timeout request_id=REQ003",
+        "2026-08-31 09:08:15 ERROR payment-service Database connection pool exhausted active=100 max=100",
+        "2026-08-31 09:13:47 ERROR payment-service Database connection timeout request_id=REQ007",
+        "2026-08-31 09:14:02 ERROR payment-service Database connection pool exhausted active=100 max=100",
+        "2026-08-31 09:14:05 ERROR order-service Payment dependency failure error_rate=38_percent"
+      ],
+      "confidence": 0.95
+    }
+  }
+]

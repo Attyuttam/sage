@@ -1,0 +1,29 @@
+Why did Zero-shot fail even though the logs were explicit?
+- the value of severity was not explicitly defined and thus the LLM considered the severity to the best of its understanding.
+But unfortunately that was not in the permissible set of values.
+
+Why did Explicit prompting perform better?
+- Because the LLm knew what kind of values are expected out of it by the user.
+
+Why isn't Few-shot automatically better than Explicit prompting?
+- Because bad examples might end up making the LLM produce bad results.
+
+What is the difference between valid JSON, valid schema, and correct analysis?
+- valid JSON means that the JSON is well-formed.
+- valid schema means that the JSON is valid and also follows the schema.
+- correct analysis means that the JSON is valid and also follows the schema and is also correct in terms of the input logs. 
+
+
+                    CORRECT ANALYSIS
+                   ┌───────────────┐
+                   │ Correct based │
+                   │ on log data   │
+                   │               │
+                   │  VALID SCHEMA │
+                   │ ┌───────────┐ │
+                   │ │ Valid     │ │
+                   │ │ JSON      │ │
+                   │ │           │ │
+                   │ │           │ │
+                   │ └───────────┘ │
+                   └───────────────┘

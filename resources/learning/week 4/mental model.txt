@@ -1,0 +1,97 @@
+The actual mental model should be:
+
+Parser
+   ↓
+LogEntry objects
+
+Analyzer
+   ↓
+raw JSON
+   ↓
+Pydantic validation
+   ↓
+IncidentAnalysis object
+
+models.py defines the contracts used by both sides; it isn't really a service participating in the runtime flow.
+
+One other thing to notice
+
+This line:
+
+CLI->>Config: Import settings & resolve defaults
+
+is slightly misleading if configuration is resolved during module import rather than through an explicit runtime call. That's an implementation detail worth checking in the actual config.py.
+
+Likewise, this:
+
+CLI->>Logging: setup_logging(args.log_level)
+
+is conceptually correct and useful because logging setup is an actual runtime action.
+
+The most important part of this diagram
+
+Look at the analyzer:
+
+             ┌───────────────┐
+             │ Build Prompt  │
+             └───────┬───────┘
+                     │
+                     ▼
+              ┌─────────────┐
+              │   Ollama    │
+              └──────┬──────┘
+                     │
+                     ▼
+                  JSON
+                     │
+                     ▼
+             ┌──────────────┐
+             │ json.loads() │
+             └──────┬───────┘
+                    │
+                    ▼
+             ┌──────────────┐
+             │   Pydantic   │
+             └──────┬───────┘
+                    │
+                    ▼
+          IncidentAnalysis
+
+This is the core thing you've been building during Weeks 1–2.
+
+Then Week 3 taught you that the behavior of the middle part isn't fixed:
+
+                    ┌───────────────┐
+                    │     Model     │
+                    │  temperature  │
+                    │    context    │
+                    │     prompt    │
+                    └───────┬───────┘
+                            │
+                            ▼
+                         output
+
+And Week 4 is now making the surrounding software reliable:
+
+              ┌───────────────────────┐
+              │      Sage v0.1         │
+              │                       │
+User ────────►│ CLI                   │
+              │ Configuration         │
+              │ Logging               │
+              │ Parser                │
+              │ Analyzer              │
+              │ Validation             │
+              │ Error handling         │
+              │ Retries                │
+              └───────────┬───────────┘
+                          │
+                          ▼
+                        Ollama
+
+That's the progression I want you to understand.
+
+Week 1: make an LLM do something.
+Week 2: make its output structured and validated.
+Week 3: understand why its behavior changes.
+Week 4: turn the experiment into an actual software application.

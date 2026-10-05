@@ -1,0 +1,31 @@
+                SAGE
+                  │
+            Define the task
+                  │
+                  ↓
+          What context is needed?
+                  │
+                  ↓
+             Design prompt
+                  │
+                  ↓
+          Select candidate models
+                  │
+                  ↓
+        Choose sampling behavior
+             (temperature)
+                  │
+                  ↓
+             BENCHMARK
+                  │
+      ┌───────────┼────────────┐
+      ↓           ↓            ↓
+   Quality     Performance   Reliability
+      │           │            │
+      │      ┌────┴────┐       │
+      │      ↓         ↓       │
+      │    Latency  Throughput │
+      │    P50/P95/P99         │
+      └──────────┬─────────────┘
+                 ↓
+         Engineering trade-off

@@ -1,0 +1,24 @@
+The idea behind week 4 (day 3):
+- What should Sage guarantee, and how do we automatically
+ verify those guarantees?
+
+1. What we're building today
+
+By the end of Day 3, Sage should have tests covering the important boundaries:
+
+                 ┌─────────────┐
+                 │    CLI      │
+                 └──────┬──────┘
+                        │
+                 ┌──────▼──────┐
+                 │   Parser    │
+                 └──────┬──────┘
+                        │
+                 ┌──────▼──────┐
+                 │   Analyzer  │
+                 └──────┬──────┘
+                        │
+                 ┌──────▼──────┐
+                 │   Ollama    │
+                 └─────────────┘
+

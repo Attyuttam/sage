@@ -1,10 +1,13 @@
 """Parse application log files into structured LogEntry objects."""
 
+import logging
 import re
 from datetime import datetime
 from pathlib import Path
 
 from models import LogEntry
+
+logger = logging.getLogger(__name__)
 
 # Matches lines like:
 #   2026-08-31 09:00:01 INFO payment-service Payment request received request_id=REQ001 user_id=U101
@@ -32,6 +35,7 @@ def parse_file(path: str) -> list[LogEntry]:
     if not log_path.exists():
         raise FileNotFoundError(f"Log file not found: {path}")
 
+    logger.debug("Reading log file: %s", path)
     entries: list[LogEntry] = []
 
     with open(log_path, encoding="utf-8") as f:
@@ -44,6 +48,7 @@ def parse_file(path: str) -> list[LogEntry]:
             if entry is not None:
                 entries.append(entry)
 
+    logger.info("Parsed %d log entries from %s", len(entries), path)
     return entries
 
 
@@ -51,6 +56,7 @@ def _parse_line(line: str) -> LogEntry | None:
     """Parse a single log line into a LogEntry, or None if it doesn't match."""
     match = _LINE_PATTERN.match(line)
     if not match:
+        logger.debug("Skipping unparseable log line: %.80s", line)
         return None
 
     timestamp_str, level, service, remainder = match.groups()
@@ -58,6 +64,7 @@ def _parse_line(line: str) -> LogEntry | None:
     try:
         timestamp = datetime.strptime(timestamp_str, _TIMESTAMP_FMT)
     except ValueError:
+        logger.debug("Skipping line with invalid timestamp: %.80s", line)
         return None
 
     # Separate the human-readable message from trailing key=value pairs

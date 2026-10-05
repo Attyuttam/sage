@@ -1,13 +1,14 @@
-"""Build prompts from parsed logs and analyze them using Ollama."""
-
 import json
+import logging
 from textwrap import dedent
 
 import httpx
 from pydantic import ValidationError
 
-from config import DEFAULT_MODEL, OLLAMA_URL, TIMEOUT
+from config import DEFAULT_MODEL, MAX_ATTEMPTS, OLLAMA_URL, TEMPERATURE, TIMEOUT
 from models import IncidentAnalysis, LogEntry
+
+logger = logging.getLogger(__name__)
 
 
 class LLMParseError(Exception):
@@ -20,14 +21,14 @@ class LLMValidationError(Exception):
     pass
 
 
-MAX_ATTEMPTS = 3
-
-
 def analyze(
     entries: list[LogEntry],
     *,
     model: str = DEFAULT_MODEL,
     ollama_url: str = OLLAMA_URL,
+    temperature: float = TEMPERATURE,
+    timeout: float = TIMEOUT,
+    max_attempts: int = MAX_ATTEMPTS,
 ) -> IncidentAnalysis:
     """Send log entries to Ollama for analysis, retrying on output-quality failures.
 
@@ -44,15 +45,51 @@ def analyze(
         LLMParseError: If all attempts returned invalid JSON.
         LLMValidationError: If all attempts failed schema validation.
     """
+    logger.info(
+        "Starting incident analysis on %d log entries using model '%s' (temperature=%.2f, timeout=%.1fs, max_attempts=%d)",
+        len(entries),
+        model,
+        temperature,
+        timeout,
+        max_attempts,
+    )
     prompt = _build_prompt(entries)
     last_exc: Exception | None = None
 
-    for attempt in range(1, MAX_ATTEMPTS + 1):
+    for attempt in range(1, max_attempts + 1):
+        logger.debug("Executing analysis attempt %d/%d", attempt, max_attempts)
         try:
-            return _generate_analysis(prompt, model=model, ollama_url=ollama_url)
+            result = _generate_analysis(
+                prompt,
+                model=model,
+                ollama_url=ollama_url,
+                temperature=temperature,
+                timeout=timeout,
+            )
+            logger.info(
+                "Analysis validated successfully on attempt %d/%d (severity=%s, confidence=%.2f)",
+                attempt,
+                max_attempts,
+                result.severity,
+                result.confidence,
+            )
+            return result
         except (LLMParseError, LLMValidationError) as exc:
             last_exc = exc
+            if attempt < max_attempts:
+                logger.warning(
+                    "Attempt %d/%d failed with %s: %s. Retrying...",
+                    attempt,
+                    max_attempts,
+                    type(exc).__name__,
+                    exc,
+                )
 
+    logger.error(
+        "Analysis failed after %d attempts. Last error: %s",
+        max_attempts,
+        last_exc,
+    )
     if last_exc is None:
         raise RuntimeError("Retry loop completed without an exception")
     raise last_exc
@@ -108,6 +145,8 @@ def _generate_analysis(
     *,
     model: str,
     ollama_url: str,
+    temperature: float = TEMPERATURE,
+    timeout: float = TIMEOUT,
 ) -> IncidentAnalysis:
     """POST to Ollama's /api/generate without streaming, parse JSON, and validate with Pydantic."""
     url = f"{ollama_url}/api/generate"
@@ -116,23 +155,37 @@ def _generate_analysis(
         "prompt": prompt,
         "stream": False,
         "format": "json",
+        "options": {
+            "temperature": temperature,
+        },
     }
 
+    logger.debug(
+        "Dispatching request to Ollama at %s (model='%s', prompt_chars=%d, temperature=%.2f)",
+        url,
+        model,
+        len(prompt),
+        temperature,
+    )
+
     try:
-        with httpx.Client(timeout=TIMEOUT) as client:
+        with httpx.Client(timeout=timeout) as client:
             response = client.post(url, json=payload)
             response.raise_for_status()
             data = response.json()
 
     except httpx.ConnectError as exc:
+        logger.error("Could not connect to Ollama at %s: %s", ollama_url, exc)
         raise ConnectionError(
             f"Could not connect to Ollama at {ollama_url}. Is it running?"
         ) from exc
     except httpx.TimeoutException as exc:
+        logger.error("Request to Ollama timed out after %.1fs: %s", timeout, exc)
         raise TimeoutError(
-            f"Request to Ollama timed out after {TIMEOUT}s. Is the machine overloaded?"
+            f"Request to Ollama timed out after {timeout}s. Is the machine overloaded?"
         ) from exc
     except httpx.HTTPStatusError as exc:
+        logger.error("Ollama returned HTTP %d for model '%s': %s", exc.response.status_code, model, exc)
         raise RuntimeError(
             f"Ollama returned status {exc.response.status_code}. Is the model '{model}' pulled?"
         ) from exc

@@ -1,0 +1,734 @@
+Absolutely. Days 4 and 5 are actually **one connected lesson**: Day 4 taught you how to choose between models, and Day 5 taught you how to determine whether that choice is operationally viable.
+
+# Week 3 — Day 4 & Day 5 Comprehensive Learnings
+
+---
+
+# Day 4 — Model Selection
+
+## 1. The fundamental question
+
+The naive question is:
+
+> **Which LLM is the best?**
+
+The engineering question is:
+
+> **Which LLM is appropriate for my particular task and constraints?**
+
+There is no universally "best" model.
+
+A model needs to be evaluated against:
+
+* Quality
+* Reasoning capability
+* Structured-output reliability
+* Latency
+* Throughput
+* Memory requirements
+* Compute requirements
+* Cost
+* Consistency
+* Application requirements
+
+---
+
+# 2. Model size ≠ automatically better choice
+
+You compared:
+
+```text
+llama3.2       ~3B
+llama3.1:8b    ~8B
+```
+
+Your initial hypothesis was:
+
+> Both should perform similarly because Sage's logs are relatively simple, but the 3B model should be faster.
+
+The experiment **mostly supported this**.
+
+Both models:
+
+* correctly identified the critical incident
+* correctly identified the fundamental DB/payment problem
+* achieved 100% schema validation
+* were consistent at temperature 0
+
+But the 8B model demonstrated **deeper causal reasoning**.
+
+### 3B
+
+It essentially identified:
+
+```text
+Database problems
+       ↓
+Payment service unavailable
+```
+
+### 8B
+
+It traced:
+
+```text
+DB connection timeout
+       ↓
+Connection pool exhaustion
+       ↓
+Payment failures
+       ↓
+Order-service failures
+       ↓
+Circuit breaker opens
+```
+
+The report specifically observed that the 8B model captured the downstream `order-service` impact and produced a more complete chronological evidence chain. 
+
+So:
+
+> **Larger models can provide additional reasoning capability, but the additional capability may or may not be worth its operational cost.**
+
+---
+
+# 3. Model selection is a trade-off
+
+Your experiment gave you approximately:
+
+|                    | llama3.2 | llama3.1:8b |
+| ------------------ | -------: | ----------: |
+| Parameters         |      ~3B |         ~8B |
+| Disk               |   2.0 GB |      4.9 GB |
+| RAM                |  ~2.6 GB |     ~5.6 GB |
+| Warm latency       |     ~32s |        ~86s |
+| Schema reliability |     100% |        100% |
+| Core diagnosis     |     Good |        Good |
+| Causal depth       |     Good |      Better |
+
+ 
+
+So you shouldn't conclude:
+
+> "8B is better."
+
+or:
+
+> "3B is better."
+
+The correct conclusion is:
+
+> **8B provides additional reasoning depth, but 3B provides substantially better latency/resource characteristics for Sage's current workload.**
+
+---
+
+# 4. Model size and context window are different things
+
+This is an important correction to your earlier mental model.
+
+You initially thought:
+
+> "I'd prefer a larger model when the context window needs to be very large."
+
+Don't combine these concepts.
+
+### Model size
+
+Primarily relates to the model's learned capacity/capability.
+
+```text
+3B → smaller model
+8B → larger model
+```
+
+### Context window
+
+Defines how much tokenized information can be processed in a request.
+
+```text
+small context → fewer tokens
+large context → more tokens
+```
+
+A large model doesn't automatically mean a larger context window.
+
+Therefore:
+
+> **Choose model size based on task capability requirements. Choose context size based on how much information the model needs to process.**
+
+---
+
+# 5. You don't necessarily need one model
+
+This was one of the most interesting architectural ideas that emerged from Day 4.
+
+You could eventually have:
+
+```text
+                  Incident
+                     ↓
+              Complexity check
+                 ↙       ↘
+             Simple     Complex
+                ↓          ↓
+              3B          8B
+                ↓          ↓
+                └────┬─────┘
+                     ↓
+                 Validation
+                     ↓
+                    RCA
+```
+
+So:
+
+> **3B could be your default model, while 8B could be an escalation model.**
+
+This is called **model routing**.
+
+We aren't implementing it yet. It's an architectural idea that becomes particularly interesting once you learn evaluation and production AI.
+
+---
+
+# 6. Don't make the LLM the ultimate authority
+
+For Sage, this is especially important.
+
+You said:
+
+> "I would want better inference because this defines the health of the products."
+
+That's reasonable, but a production SRE architecture shouldn't blindly trust an LLM to determine whether a product is healthy.
+
+A safer conceptual architecture is:
+
+```text
+Metrics / logs / alerts
+          ↓
+    Evidence collection
+          ↓
+ Deterministic analysis
+          ↓
+      LLM reasoning
+          ↓
+    RCA hypothesis
+          ↓
+Human / automated decision
+```
+
+The LLM should ideally answer:
+
+> **"Given this evidence, what is the most likely explanation?"**
+
+rather than:
+
+> **"Is the product healthy?"**
+
+That distinction becomes extremely important as Sage becomes more sophisticated.
+
+---
+
+# Day 5 — Latency & Cost
+
+Day 5 took the model-selection question and asked:
+
+> **Even if this model is good enough, can I actually operate it?**
+
+---
+
+# 7. Latency
+
+Latency is:
+
+> **How long one request takes to complete.**
+
+Your Sage experiment measured approximately:
+
+```text
+llama3.2       ~32 sec warm
+llama3.1:8b    ~86 sec warm
+```
+
+So the 8B model was around **2.7–2.8× slower**, depending on exactly which measurements are compared. 
+
+This matters because latency isn't just a UX problem.
+
+It affects:
+
+* throughput
+* capacity
+* queues
+* scaling
+* resource utilization
+* user experience
+* SLA compliance
+
+---
+
+# 8. Throughput
+
+This is the concept you initially weren't sure about.
+
+**Latency** asks:
+
+> How long does one request take?
+
+**Throughput** asks:
+
+> How many requests can I process per unit of time?
+
+If one analysis takes 30 seconds:
+
+```text
+3600 seconds/hour ÷ 30 seconds
+= 120 analyses/hour
+```
+
+That's the **theoretical sequential throughput**.
+
+Your Day 5 analysis calculated approximately:
+
+```text
+llama3.2       94.6 analyses/hour
+llama3.1:8b    33.5 analyses/hour
+```
+
+based on the measured mean latencies.
+
+So the model that is 2.8× slower also gives you roughly 2.8× less sequential capacity.
+
+---
+
+# 9. Capacity ≠ capability
+
+This was the source of your confusion earlier.
+
+Suppose:
+
+```text
+One request = 30 sec
+Incoming workload = 100 requests/hour
+```
+
+One sequential instance can theoretically handle:
+
+```text
+120 requests/hour
+```
+
+So yes, it can handle the workload.
+
+But it's operating close to its limit:
+
+```text
+100 / 120 ≈ 83%
+```
+
+Now imagine traffic suddenly becomes:
+
+```text
+200 requests/hour
+```
+
+One instance cannot keep up.
+
+You need:
+
+```text
+             Queue
+               ↓
+       ┌───────┼───────┐
+       ↓       ↓       ↓
+    Instance Instance Instance
+       1       2       3
+```
+
+This is where **scaling and concurrency** enter the architecture.
+
+You don't need to master those concepts yet, but you should now recognize the relationship:
+
+> **Latency influences the capacity of an AI system.**
+
+---
+
+# 10. Average latency isn't enough
+
+You initially said:
+
+> Average latency matters more because it represents most requests.
+
+That's intuitive, but it's incomplete.
+
+Suppose:
+
+```text
+99 requests → 2 seconds
+1 request    → 5 minutes
+```
+
+The average can still look acceptable.
+
+But that one slow request may be your **most complicated and most important incident**.
+
+So production systems use latency percentiles:
+
+### P50
+
+Median request.
+
+50% of requests are faster.
+
+### P95
+
+95% of requests are faster.
+
+The slowest 5% are beyond this point.
+
+### P99
+
+99% of requests are faster.
+
+The slowest 1% are beyond this point.
+
+So instead of:
+
+```text
+Average = 24 sec
+```
+
+you might want:
+
+```text
+P50 = 20 sec
+P95 = 35 sec
+P99 = 90 sec
+```
+
+This gives you a much better picture of production behavior.
+
+---
+
+# 11. But your experiment couldn't establish P95/P99
+
+This is an important lesson in **measurement discipline**.
+
+You had only:
+
+```text
+3 runs/model
+```
+
+That's nowhere near enough to meaningfully establish production P95/P99.
+
+So your Day 5 analysis correctly reported them as unreliable rather than fabricating precision.
+
+That's an engineering skill:
+
+> **Know what your data can and cannot tell you.**
+
+---
+
+# 12. Cold start vs warm latency
+
+Your first request was significantly slower.
+
+For example:
+
+```text
+llama3.2
+cold ≈ 50s
+warm ≈ 32s
+
+llama3.1:8b
+cold ≈ 151s
+warm ≈ 86s
+```
+
+
+
+This means:
+
+```text
+First request
+     ↓
+Model loading / initialization
+     ↓
+Higher latency
+```
+
+Then:
+
+```text
+Subsequent requests
+     ↓
+Model already resident
+     ↓
+Lower latency
+```
+
+So when benchmarking LLMs:
+
+> **Always understand whether you're measuring cold or warm performance.**
+
+Otherwise you can draw misleading conclusions.
+
+---
+
+# 13. Local inference isn't actually free
+
+You're using Ollama locally, so you don't have an API bill.
+
+But that doesn't mean the model has zero cost.
+
+There are still:
+
+```text
+CPU/GPU usage
+RAM/VRAM
+Electricity
+Hardware capacity
+Model storage
+Latency
+Opportunity cost
+```
+
+Your 8B model used substantially more memory than the 3B model. 
+
+So:
+
+> **No API bill ≠ zero cost.**
+
+---
+
+# 14. Hosted model cost
+
+For a hosted LLM, the basic conceptual model is:
+
+```text
+Cost =
+(input tokens × input price)
++
+(output tokens × output price)
+```
+
+Therefore:
+
+```text
+More context
+      ↓
+More input tokens
+      ↓
+Potentially higher cost
+```
+
+and:
+
+```text
+Longer response
+      ↓
+More output tokens
+      ↓
+Higher cost
+```
+
+You don't need to memorize provider pricing yet.
+
+The important concept is:
+
+> **Tokens are both a computational and economic resource.**
+
+---
+
+# 15. Context also affects latency
+
+This connects Day 1 → Day 5.
+
+You observed in Day 1 that increasing the log context could substantially increase latency.
+
+Conceptually:
+
+```text
+More logs
+   ↓
+More tokens
+   ↓
+More model processing
+   ↓
+Potentially higher latency
+   ↓
+Potentially lower throughput
+   ↓
+Potentially higher cost
+```
+
+But don't assume a perfectly linear relationship.
+
+Your Day 1 experiment had variability, so the correct engineering statement is:
+
+> **Increasing context generally adds processing work, but the exact latency relationship needs to be measured.**
+
+---
+
+# 16. The big connection between Day 4 and Day 5
+
+This is the most important part.
+
+Day 4 asked:
+
+> **Which model gives me the quality I need?**
+
+Day 5 asks:
+
+> **Can that model meet my operational requirements?**
+
+Together:
+
+```text
+                   Model
+                     ↓
+          ┌──────────┼──────────┐
+          ↓          ↓          ↓
+       Quality    Latency    Resources
+          ↓          ↓          ↓
+          └──────────┼──────────┘
+                     ↓
+              Throughput
+                     ↓
+                 Capacity
+                     ↓
+             Production fit
+```
+
+So the real model-selection process is:
+
+### Step 1 — Define requirements
+
+For example:
+
+```text
+Diagnosis accuracy ≥ X
+Schema reliability ≥ Y
+P95 latency ≤ Z
+Throughput ≥ N/hour
+Cost ≤ ₹/$X
+```
+
+### Step 2 — Benchmark candidate models
+
+```text
+Model A
+Model B
+Model C
+```
+
+### Step 3 — Measure
+
+```text
+Quality
+Latency
+P50/P95/P99
+Throughput
+Memory
+Cost
+```
+
+### Step 4 — Select the model that satisfies the constraints
+
+Not:
+
+> "The model with the highest benchmark score."
+
+But:
+
+> **"The model that meets the application's requirements at an acceptable operational cost."**
+
+---
+
+# Your Sage example
+
+Today, based on the limited experiment:
+
+```text
+             llama3.2
+                ↓
+      Good enough diagnosis
+                +
+       100% schema adherence
+                +
+          ~32s warm
+                +
+       lower resource usage
+```
+
+versus:
+
+```text
+             llama3.1:8b
+                    ↓
+          Better causal depth
+                    +
+           100% schema adherence
+                    +
+              ~86s warm
+                    +
+          much higher resources
+```
+
+ 
+
+So **we don't yet have enough evidence to declare one universally superior**.
+
+For the current simple Sage workload, **3B is the sensible default**.
+
+For harder incidents, the 8B model may become worthwhile.
+
+And that leads naturally to a future architecture:
+
+```text
+                    Incident
+                       ↓
+               Difficulty / risk
+                  ↙       ↘
+              Simple      Hard
+                 ↓          ↓
+                3B          8B
+                 ↓          ↓
+                 └────┬─────┘
+                      ↓
+                  Validation
+                      ↓
+                     RCA
+```
+
+---
+
+# The Day 4–5 mental model I want you to retain
+
+If someone asks you:
+
+> **"Which LLM should we use?"**
+
+Don't answer immediately.
+
+Ask:
+
+```text
+1. What does the application need?
+              ↓
+2. What quality level is required?
+              ↓
+3. What latency is acceptable?
+              ↓
+4. How much traffic?
+              ↓
+5. What throughput is required?
+              ↓
+6. What infrastructure is available?
+              ↓
+7. What is the cost?
+              ↓
+8. Benchmark candidate models
+              ↓
+9. Choose based on evidence
+```
+
+That's the **AI engineering / AI architecture mindset** that Days 4 and 5 are trying to build.

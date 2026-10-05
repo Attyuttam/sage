@@ -1,0 +1,150 @@
+The 10,000 incidents/day question
+
+Your answer:
+
+pricing, temperature, context window, prompting style etc.
+
+🟡 This is where I'd push you harder.
+
+Those are relevant model configuration variables, but they're not the main measurements I'd want before deploying at 10,000 incidents/day.
+
+Think like a system architect.
+
+You have:
+
+10,000 incidents/day
+        ↓
+       Sage
+        ↓
+     LLM calls
+
+10,000/day is approximately:
+
+417/hour average, or 6.9/minute.
+
+Now imagine:
+
+3B
+→ faster
+→ slightly lower quality
+
+8B
+→ slower
+→ higher quality
+
+The first question isn't "which model is better?"
+
+It's:
+
+Can the system meet its workload and latency requirements?
+
+I'd measure:
+
+① Quality
+
+Not just one human score.
+
+For example:
+
+root-cause accuracy
+affected-service accuracy
+evidence accuracy
+false RCA rate
+hallucination rate
+agreement with known incidents
+② Latency
+
+Especially:
+
+P50
+P95
+P99
+
+You already learned this on Day 5.
+
+If 8B takes 3× longer on average but has a terrible P99, that could matter much more for a real-time system.
+
+③ Throughput / capacity
+
+Can the infrastructure process:
+
+417 incidents/hour
+
+with enough headroom?
+
+For example:
+
+3B → 500 incidents/hour
+8B → 150 incidents/hour
+
+Then a single 8B instance clearly can't handle the workload.
+
+You'd need more compute/parallelism.
+
+④ Cost
+
+For hosted models:
+
+input tokens × input price
++
+output tokens × output price
+
+For local models:
+
+GPU/CPU
+RAM/VRAM
+electricity
+hardware
+number of inference workers
+
+You learned this in Day 5.
+
+⑤ Reliability
+
+You'd measure:
+
+schema validation failures
+malformed outputs
+retry rate
+timeout rate
+infrastructure failures
+failure rate under load
+⑥ Context requirements
+
+Not merely:
+
+"65 vs 30"
+
+but:
+
+How much context is actually required to correctly diagnose the incident?
+
+That's a much more useful question.
+
+Your improved decision framework
+
+You can now think about model selection like this:
+
+                 MODEL SELECTION
+                       │
+        ┌──────────────┼──────────────┐
+        ↓              ↓              ↓
+      Quality        Latency        Cost
+        │              │              │
+        ↓              ↓              ↓
+   RCA accuracy      P50/P95/P99   ₹ / incident
+                       │
+                       ↓
+                   Throughput
+                       │
+                       ↓
+                    Reliability
+                       │
+                       ↓
+                Production capacity
+
+And only after measuring these, you decide which configuration satisfies Sage's requirements.
+
+That's much closer to real AI engineering than simply saying:
+
+"8B is smarter, therefore use 8B."

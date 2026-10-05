@@ -1,0 +1,109 @@
+Viewed week3_day3_prompt_experiment.md:1-100
+
+# Week 3 Consolidation Review: Experiments, Findings, and Engineering Lessons
+
+---
+
+## 1. Daily Experiment Summary (Days 1–6)
+
+### Day 1: Tokens and Context Windows
+* **Experiment**: Tested Sage analysis across progressively larger suffix slices of parsed application logs.
+* **Variable Changed**: Input context size (5, 15, 30, and 65 parsed log entries).
+* **What Was Measured**: Complete-call latency (seconds), prompt character length, token count message, and resulting `IncidentAnalysis` structure.
+* **Most Important Observed Result**: With small contexts (5 or 15 logs), the model lacked earlier failure context and diagnosed only local symptoms or reported normal operation; expanding to 30 and 65 logs provided the causal chain (DB timeout $\rightarrow$ pool exhaustion $\rightarrow$ circuit breaker), but increased prompt character count and prefill latency.
+
+---
+
+### Day 2: Temperature and Sampling
+* **Experiment**: Tested stochastic variation and output reproducibility across multiple sampling temperatures with repeated runs ($n=3$).
+* **Variable Changed**: Sampling temperature ($T = 0.0$, $T = 0.5$, $T = 1.0$).
+* **What Was Measured**: Number of retry attempts, schema validation success/failure, latency, and textual variation across repeated runs for identical prompt input.
+* **Most Important Observed Result**: At $T = 0.0$, output was strictly deterministic across all 3 runs. As temperature increased ($T = 0.5$ and $T = 1.0$), output wording, evidence array selection, and formatting varied across runs while maintaining basic schema validity, but with no intrinsic increase in factual accuracy.
+
+---
+
+### Day 3: Prompt Engineering Strategies
+* **Experiment**: Evaluated structural prompt paradigms under deterministic greedy decoding ($T = 0.0$, $n=3$).
+* **Variable Changed**: Prompt design strategy:
+  1. *Variant A (Zero-shot)*: Minimalist key list without explicit enum constraints or field semantics.
+  2. *Variant B (Explicit Instructions)*: SRE role definition, untrusted `<log_data>` delimiters, strict enum literals, and field semantic rules.
+  3. *Variant C (Few-shot)*: Variant B + two synthetic out-of-domain demonstration pairs.
+* **What Was Measured**: First-attempt vs retry schema validation success (`IncidentAnalysis`), failure types (`ValidationError`), prompt length, evidence quality, and latency.
+* **Most Important Observed Result**: Variant A failed schema validation 100% of the time across all retries (returned freeform unconstrained strings like `"Critical (DB Pool Exhausted)"` violating Pydantic enums). Variant B and Variant C achieved a 100% validation pass rate on Attempt 1. Few-shot (Variant C) added ~1,460 characters of prompt overhead without improving diagnostic quality over Variant B.
+
+---
+
+### Day 4: Model Architecture & Parameter Scale
+* **Experiment**: Compared lightweight edge-oriented model vs larger workstation-grade model ($n=3$, $T=0.0$, 65 logs, explicit prompt).
+* **Variable Changed**: Model architecture/parameter scale (`llama3.2` ~3B vs `llama3.1:8b` ~8B).
+* **What Was Measured**: Cold-start latency (Run 1) vs warm latency (Runs 2–3), validation pass rate, RAM footprint, root-cause depth, evidence length, and affected-service isolation.
+* **Most Important Observed Result**: Both models achieved 100% schema validation on Attempt 1. `llama3.2` (3B) ran ~2.83× faster on average (31.9s warm vs 85.6s warm), but `llama3.1:8b` systematically extracted a more complete multi-service causal chain (linking DB connection timeouts $\rightarrow$ payment-service degradation $\rightarrow$ order-service failures).
+
+---
+
+### Day 5: Latency, Throughput, and Production Readiness
+* **Experiment / Analysis**: Theoretical and empirical analysis of latency distributions, sequential throughput limits, cold vs warm state overhead, and production economics using pooled data from Days 3 & 4.
+* **Variable Changed**: Analytical framing (Latency vs Throughput, Mean vs P50 vs P95/P99, Cold start vs Warm state).
+* **What Was Measured**: Latency ratios, theoretical sequential throughput ($\text{runs/hour} = 3600 / \text{latency}$), cold-start loading penalty (+58% for 3B, +77% for 8B), and sample-size reliability thresholds.
+* **Most Important Observed Result**: In a single-worker sequential pipeline, latency directly dictates capacity ($3600 / \text{latency}$). Furthermore, small sample sizes ($n=3$) make tail statistics (P95/P99) statistically meaningless, and a single cold-start event heavily skews arithmetic mean latency away from the median (P50).
+
+---
+
+### Day 6: The Big Multi-Variable Experiment
+* **Experiment**: Full factorial matrix combining all independent variables in a controlled single-pass run ($n=1$ per cell, 8 total runs).
+* **Variables Changed**:
+  * Model: `llama3.2` (3B) vs `llama3.1:8b` (8B)
+  * Context Size: 30 logs vs 65 logs
+  * Temperature: $0.0$ vs $1.0$
+* **What Was Measured**: Latency, sequential throughput, attempts used, schema validation status, and 4-dimension rubric scoring (Root Cause, Affected Services, Evidence Quality, Causal Explanation; max 8 points).
+* **Most Important Observed Result**: All 8 configurations passed validation on Attempt 1. `llama3.1:8b` achieved higher rubric scores overall (average 7.75/8 vs 6.25/8 for 3B) and was resilient to context truncation, but required nearly 3× higher latency. At $T=1.0$, un-impacted services leaked into `affected_services` in 50% of the runs (e.g. `inventory-service` or `user-service`), whereas $T=0.0$ had zero service hallucinations.
+
+---
+
+## 2. Supported Conclusions vs Unsupported (Too Strong) Conclusions
+
+| Dimension | What the Evidence ACTUALLY Supports | What Would Be TOO STRONG / Unjustified |
+| :--- | :--- | :--- |
+| **Prompting** | Explicit instruction schemas (Variant B) are necessary and sufficient for 100% Pydantic validation on `llama3.2`; minimal zero-shot fails systematically. | "Few-shot prompting is never useful in production" (tested only 2 synthetic examples on 1 incident scenario). |
+| **Model Scale** | `llama3.1:8b` produced more comprehensive multi-service causal explanations and deeper evidence extraction than `llama3.2` for this incident. | "`llama3.1:8b` is always required for incident analysis" or "3B models are incapable of root-cause analysis". |
+| **Temperature** | $T=0.0$ yields reproducible, deterministic output and eliminates false-positive service hallucinations in structured extraction; $T=1.0$ increases token entropy and variance. | "$T=1.0$ makes models inherently faster or smarter" (speed delta in Day 6 was confounded by execution order/caching). |
+| **Context Window** | Suffix truncation (30 logs) saved ~16s to 40s of CPU prefill time; 8B retained sufficient signal for diagnosis, while 3B at T=0 lost sight of the root cause. | "30 logs is universally adequate" or "65 logs is always optimal" (depends entirely on where the fault indicators lie). |
+| **Latency & Scale** | CPU inference on 8B imposes a severe latency penalty (84s–163s) that caps single-thread sequential throughput to 22–34 analyses/hr. | "8B is unviable in production" (hardware accelerators, batching, or asynchronous queues change throughput economics). |
+
+---
+
+## 3. Key Distinctions & Conceptual Clarifications
+
+1. **Observation vs Interpretation**:
+   * *Observation*: `llama3.2` at 30 logs and $T=0.0$ returned `["order-service", "payment-service"]` with an issue headline blaming payment dependency.
+   * *Interpretation*: The 3B model suffered from recency bias or lack of attention depth over earlier pool exhaustion events in a truncated window.
+2. **One-Run Evidence vs Repeated-Run Evidence**:
+   * Day 6 provided single-point snapshots ($n=1$) for each of the 8 configurations. It reveals potential failure modes (such as false-positive service hallucination at $T=1.0$), but cannot prove statistical distributions or variance without repeated runs ($n \ge 20$).
+3. **Validity vs Quality**:
+   * *Validity* (Schema Compliance): Did the JSON match the Pydantic type signatures, regexes, and enum boundaries? (Achieved 100% across Days 3, 4, and 6 with explicit prompting).
+   * *Quality* (Domain Accuracy): Did the output correctly isolate the root cause, avoid blaming innocent services, and explain the causal chain? (Varied between 5/8 and 8/8 across configurations).
+4. **Latency vs Throughput**:
+   * *Latency* is response turnaround for a single user/CLI request.
+   * *Throughput* is system capacity over time ($\text{requests} / \text{hour}$). A low-latency model (3B) yields high sequential throughput; a high-latency model (8B) requires concurrency or horizontal scaling to support high-volume pipelines.
+5. **Model Capability vs Model Size**:
+   * Model size correlates with parameter count and compute cost. Capability on a specific task depends on prompt precision, task complexity, and instruction alignment.
+6. **Context Quantity vs Context Relevance**:
+   * Feeding more raw logs increases prompt prefill time linearly without guaranteeing better diagnosis. Having the *right* causal log lines is what matters.
+7. **Temperature vs "Creativity"**:
+   * Temperature is a mathematical scaling parameter for the softmax probability distribution over vocabulary tokens. It does not confer "creativity" or "intelligence"—it simply increases token sampling entropy, which in structured extraction risks schema or factual drift.
+
+---
+
+## 4. Key Engineering Lessons from Week 3
+
+1. **Prompt Structure is the Foundation of Reliability**: Before tuning models or hyper-parameters, explicit schema boundaries and field rules must be locked down. Without explicit enum constraints, even capable models fail deterministic validation.
+2. **Model Selection is an Engineering Trade-off, Not a Benchmark Contest**:
+   $$\text{Decision} = f(\text{Diagnostic Quality Requirement}, \text{Latency SLA}, \text{Hardware/Cost Budget}, \text{Throughput Demand})$$
+   * For low-latency, high-volume CLI triage on constrained hardware: lightweight 3B models at $T=0.0$ offer high throughput and baseline safety.
+   * For deep post-mortem analysis or complex cascading multi-service failures: 8B+ models at $T=0.0$ offer superior multi-hop reasoning.
+3. **Deterministic Sampling ($T=0.0$) is Mandatory for Production Structured Extraction**: Uncontrolled entropy ($T=1.0$) introduces non-deterministic outputs and hallucinations of unaffected services without improving factual accuracy.
+4. **Measurements Must Match the Deployment Architecture**: Cold starts, tail latencies (P95/P99), and sequential throughput limits govern real-world operational viability far more than isolated median runtimes.
+
+---
+
+*(Standing by for your instructions on Week 3 Day 7 consolidation.)*

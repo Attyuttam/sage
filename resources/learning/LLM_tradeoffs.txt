@@ -1,0 +1,19 @@
+Problem
+   ↓
+What behavior do I need?
+   ↓
+Context
+   ↓
+Prompt
+   ↓
+Model
+   ↓
+Temperature / sampling
+   ↓
+Latency
+   ↓
+Quality
+   ↓
+Cost / throughput / reliability
+   ↓
+Engineering trade-off

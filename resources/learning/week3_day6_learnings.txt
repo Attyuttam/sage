@@ -1,0 +1,53 @@
+Which variable had the clearest effect on quality 
+in this experiment — model, temperature, or context? Why?
+- the model had the clearest impact
+
+
+Which configuration would you choose for a real-time 
+Sage analysis if latency mattered? Don't say "best"; explain the trade-off.
+- 3B with 65 logs and temperature 0
+- I believe more logs would increase the latency a bit but
+the correctness of the answers will also be impacted. Since I 
+am already using a 3B model because it is a lot faster 
+than the 8B one, I am already imprving the latency a lot by this.
+Now, if I have to choose between 30 and 65 logs, I will go with 65 logs.
+
+
+**I would choose 3B + 65 + T0 because the 3B model 
+gives substantially lower latency than 8B, 
+while the 65-log context provides the complete 
+incident lifecycle and, in this experiment, did not 
+hurt quality. I would accept the additional context 
+latency because Sage's analysis benefits from having 
+the full causal sequence available.
+
+Why can't we conclude that T=1 is better than T=0 from these results?
+- because for understanding the overall impact of the change
+we need to run more experiments and have more data points.
+
+Why can't we conclude that 65 logs are better than 30 logs?
+- Because having more logs simple means determining more causal
+relationships, but since our logs are already pretty explicit, we need 
+not focus on more entries in the logs but rather the quality of the logs
+
+** Context quality and relevance matter more than raw context quantity.
+
+Suppose Sage handled 10,000 incidents/day and an 
+8B model produced slightly better RCAs but took 
+~3× longer. What additional measurements would you want 
+before choosing the model?
+- I would have to ofcouse check pricing of the model,
+temperature, the context window, the prompting style etc
+
+
+
+Mental model of temperature:
+                    What does the problem need?
+                              │
+                ┌─────────────┴─────────────┐
+                ↓                           ↓
+       "Give me the answer"          "Explore possibilities"
+                │                           │
+          low variation              more variation
+                │                           │
+        lower temperature           higher temperature

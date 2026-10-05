@@ -1,3 +1,5 @@
+12th Sept, 2026
+
 What does temperature actually control?
 - Temperature controls the probability of the tokens that comes up in the LLM's output.
 Higher temperature means the tokens that were less likely to be picked up might have

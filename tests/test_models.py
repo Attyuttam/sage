@@ -138,6 +138,55 @@ class TestIncidentAnalysis:
         assert errors[0]["loc"] == ("confidence",)
         assert "less_than_equal" in errors[0]["type"]
 
+    def test_incident_analysis_model_dump_serialization_contract(self, valid_data):
+        """Serialization Rule: model_dump() produces dictionary conforming to schema."""
+        analysis = IncidentAnalysis.model_validate(valid_data)
+        dumped = analysis.model_dump()
+
+        assert isinstance(dumped, dict)
+        assert dumped == valid_data
+        assert dumped["severity"] == "HIGH"
+        assert dumped["affected_services"] == ["payment-service", "order-service"]
+        assert dumped["primary_issue"] == "Database connection timeout and pool exhaustion"
+        assert dumped["probable_cause"] == "Latency spike led to exhausted connection pool"
+        assert dumped["evidence"] == [
+            "09:05:15 Database response slow latency_ms=2800",
+            "09:08:15 Database connection pool exhausted active=100 max=100",
+        ]
+        assert dumped["confidence"] == 0.95
+
+    def test_invalid_affected_services_type_raises_validation_error(self, valid_data):
+        """Validation Rule: affected_services must be a valid list of strings."""
+        valid_data["affected_services"] = "not-a-list"
+        with pytest.raises(ValidationError) as exc_info:
+            IncidentAnalysis.model_validate(valid_data)
+
+        errors = exc_info.value.errors()
+        assert any(e["loc"] == ("affected_services",) for e in errors)
+
+        valid_data["affected_services"] = [{"nested": "dict"}]
+        with pytest.raises(ValidationError) as exc_info:
+            IncidentAnalysis.model_validate(valid_data)
+
+        errors = exc_info.value.errors()
+        assert any(e["loc"][0] == "affected_services" for e in errors)
+
+    def test_invalid_evidence_element_type_raises_validation_error(self, valid_data):
+        """Validation Rule: evidence entries must be strings."""
+        valid_data["evidence"] = [None]
+        with pytest.raises(ValidationError) as exc_info:
+            IncidentAnalysis.model_validate(valid_data)
+
+        errors = exc_info.value.errors()
+        assert any(e["loc"][0] == "evidence" for e in errors)
+
+        valid_data["evidence"] = [{"log_line": "09:00:00 ERROR"}]
+        with pytest.raises(ValidationError) as exc_info:
+            IncidentAnalysis.model_validate(valid_data)
+
+        errors = exc_info.value.errors()
+        assert any(e["loc"][0] == "evidence" for e in errors)
+
 
 class TestIncidentAnalysisDomainValidation:
     """Test domain-level constraints that go beyond JSON schema rules."""

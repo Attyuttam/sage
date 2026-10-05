@@ -44,6 +44,38 @@ class TestLogLineParser:
         assert _parse_line("2026-99-99 99:99:99 INFO test-service Invalid date") is None
         assert _parse_line("   ") is None
 
+    def test_parse_complex_metadata_values(self):
+        raw = "2026-08-31 09:05:15 INFO worker-svc Processing batch cpu_pct=99.5% host=node-01.prod_internal latency_ms=120.5 items=500"
+        entry = _parse_line(raw)
+
+        assert entry is not None
+        assert entry.metadata == {
+            "cpu_pct": "99.5%",
+            "host": "node-01.prod_internal",
+            "latency_ms": "120.5",
+            "items": "500",
+        }
+
+    @pytest.mark.parametrize(
+        "service_name",
+        ["auth_service", "payment-service-v2", "db_shard_01", "api3-gateway_node"],
+    )
+    def test_parse_service_names_with_hyphens_underscores_numbers(self, service_name):
+        raw = f"2026-08-31 09:00:00 INFO {service_name} Service ready"
+        entry = _parse_line(raw)
+
+        assert entry is not None
+        assert entry.service == service_name
+        assert entry.message == "Service ready"
+
+    def test_parse_preserves_message_text_with_trailing_metadata(self):
+        raw = "2026-08-31 09:05:18 ERROR payment-service Database connection failed during transaction settlement request_id=REQ001 code=ERR500"
+        entry = _parse_line(raw)
+
+        assert entry is not None
+        assert entry.message == "Database connection failed during transaction settlement"
+        assert entry.metadata == {"request_id": "REQ001", "code": "ERR500"}
+
 
 class TestLogFileParser:
     """Test file reading and batch processing."""
